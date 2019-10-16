@@ -1,19 +1,23 @@
 use mcl::*;
+use std::mem;
 
 macro_rules! field_test {
     ($t:ty) => {{
         let mut x = <$t>::zero();
+        assert!(x.is_valid());
         assert!(x.is_zero());
         assert!(!x.is_one());
         x.set_int(1);
         assert!(!x.is_zero());
         assert!(x.is_one());
         let mut y = <$t>::from_int(1);
+        assert!(y.is_valid());
         assert_eq!(x, y);
         y.set_int(2);
         assert!(x != y);
         x.set_str("65535", 10);
         y.set_str("ffff", 16);
+        assert!(x.is_valid());
         assert_eq!(x, y);
         x.set_int(123);
         assert!(x.is_odd());
@@ -100,6 +104,12 @@ ec_test_impl![G2, Fp2];
 #[test]
 #[allow(non_snake_case)]
 fn test() {
+	assert_eq!(mem::size_of::<Fr>(), 32);
+	assert_eq!(mem::size_of::<Fp>(), 48);
+	assert_eq!(mem::size_of::<Fp2>(), 48 * 2);
+	assert_eq!(mem::size_of::<G1>(), 48 * 3);
+	assert_eq!(mem::size_of::<G2>(), 48 * 2 * 3);
+	assert_eq!(mem::size_of::<GT>(), 48 * 12);
     assert!(init(CurveType::BLS12_381));
     assert_eq!(get_fp_serialized_size(), 48);
     assert_eq!(get_g1_serialized_size(), 48);
@@ -120,8 +130,6 @@ fn test() {
 
     let P = G1::from_str("1 3685416753713387016781088315183077757961620795782546409894578378688607592378376318836054947676345821548104185464507 1339506544944476473020471379941921221584933875938349620426543736416511423956333506472724655353366534992391756441569", 10).unwrap();
     let Q = G2::from_str("1 352701069587466618187139116011060144890029952792775240219908644239793785735715026873347600343865175952761926303160 3059144344244213709971259814753781636986470325476647558659373206291635324768958432433509563104347017837885763365758 1985150602287291935568054521177171638300868978215655730859378665066344726373823718423869104263333984641494340347905 927553665492332455747201965776037880757740193453592970025027978793976877002675564980949289727957565575433344219582", 10).unwrap();
-	println!("P={}", P.get_str(10));
-	println!("Q={}", Q.get_str(10));
 
     let t = EcTestImpl {};
     EcTest::exec(&t, P);

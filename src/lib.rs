@@ -394,7 +394,7 @@ field_mul_op_impl![Fp, mclBnFp_mul, mclBnFp_div, mclBnFp_inv, mclBnFp_sqr];
 #[derive(Default, Debug, Clone)]
 #[repr(C)]
 pub struct Fp2 {
-    d: [Fr; 2],
+    d: [Fp; 2],
 }
 common_impl![Fp2, mclBnFp2_isEqual, mclBnFp2_isZero];
 serialize_impl![
