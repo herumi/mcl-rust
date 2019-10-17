@@ -1,4 +1,5 @@
 use std::mem::MaybeUninit;
+use std::ops::Mul;
 use std::os::raw::c_int;
 
 #[link(name = "mcl", kind = "static")]
@@ -77,7 +78,7 @@ extern "C" {
     fn mclBnFp_sqr(y: *mut Fp, x: *const Fp);
     fn mclBnFp_squareRoot(y: *mut Fp, x: *const Fp) -> i32;
 
-	// Fp2
+    // Fp2
     fn mclBnFp2_isEqual(x: *const Fp2, y: *const Fp2) -> i32;
     fn mclBnFp2_isZero(x: *const Fp2) -> i32;
 
@@ -358,6 +359,58 @@ macro_rules! ec_impl {
     };
 }
 
+macro_rules! mul_impl {
+    ($t:ty, $u:ty, $fn:ident) => {
+        impl Mul<$u> for $t {
+            type Output = $t;
+
+            #[inline]
+            fn mul(self, other: $u) -> $t {
+                let mut result = <$t>::default();
+                unsafe {
+                    $fn(&mut result, &self, &other);
+                }
+                result
+            }
+        }
+
+        forward_ref_binop! { impl Mul, mul for $t, $u }
+    };
+}
+
+// implements binary operators "&T op U", "T op &U", "&T op &U"
+// based on "T op U" where T and U are expected to be `Copy`able
+macro_rules! forward_ref_binop {
+    (impl $imp:ident, $method:ident for $t:ty, $u:ty) => {
+        impl<'a> $imp<$u> for &'a $t {
+            type Output = <$t as $imp<$u>>::Output;
+
+            #[inline]
+            fn $method(self, other: $u) -> <$t as $imp<$u>>::Output {
+                $imp::$method(self.clone(), other)
+            }
+        }
+
+        impl<'a> $imp<&'a $u> for $t {
+            type Output = <$t as $imp<$u>>::Output;
+
+            #[inline]
+            fn $method(self, other: &'a $u) -> <$t as $imp<$u>>::Output {
+                $imp::$method(self, other.clone())
+            }
+        }
+
+        impl<'a, 'b> $imp<&'a $u> for &'b $t {
+            type Output = <$t as $imp<$u>>::Output;
+
+            #[inline]
+            fn $method(self, other: &'a $u) -> <$t as $imp<$u>>::Output {
+                $imp::$method(self.clone(), other.clone())
+            }
+        }
+    };
+}
+
 #[derive(Default, Debug, Clone)]
 #[repr(C)]
 pub struct Fp {
@@ -407,9 +460,9 @@ str_impl![Fp2, 1024, mclBnFp2_getStr, mclBnFp2_setStr];
 add_op_impl![Fp2, mclBnFp2_add, mclBnFp2_sub, mclBnFp2_neg];
 field_mul_op_impl![Fp2, mclBnFp2_mul, mclBnFp2_div, mclBnFp2_inv, mclBnFp2_sqr];
 impl Fp2 {
-	pub fn square_root(y: &mut Fp2, x: &Fp2) -> bool {
-	    unsafe { mclBnFp2_squareRoot(y, x) == 0 }
-	}
+    pub fn square_root(y: &mut Fp2, x: &Fp2) -> bool {
+        unsafe { mclBnFp2_squareRoot(y, x) == 0 }
+    }
 }
 
 #[derive(Default, Debug, Clone)]
@@ -444,6 +497,7 @@ base_field_impl![
 ];
 add_op_impl![Fr, mclBnFr_add, mclBnFr_sub, mclBnFr_neg];
 field_mul_op_impl![Fr, mclBnFr_mul, mclBnFr_div, mclBnFr_inv, mclBnFr_sqr];
+mul_impl![Fr, Fr, mclBnFr_mul];
 
 #[derive(Default, Debug, Clone)]
 #[repr(C)]
