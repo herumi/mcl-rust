@@ -1,4 +1,4 @@
-use mcl::*;
+use mcl_rust::*;
 use std::mem;
 
 macro_rules! field_test {

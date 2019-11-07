@@ -1,5 +1,5 @@
 // env RUSTFLAGS="-L <mcl>/lib" cargo run
-use mcl::*;
+use mcl_rust::*;
 
 #[allow(non_snake_case)]
 fn main() {

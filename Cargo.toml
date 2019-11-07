@@ -1,5 +1,5 @@
 [package]
-name = "mcl"
+name = "mcl_rust"
 version = "0.0.1"
 authors = ["MITSUNARI Shigeo <herumi@nifty.com>"]
 description = "a wrapper class/function of a pairing library; https://github.com/herumi/mcl"
