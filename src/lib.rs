@@ -1,5 +1,8 @@
 use std::mem::MaybeUninit;
-use std::ops::Mul;
+use std::ops::{Add, AddAssign};
+use std::ops::{Div, DivAssign};
+use std::ops::{Mul, MulAssign};
+use std::ops::{Sub, SubAssign};
 use std::os::raw::c_int;
 
 #[link(name = "mcl", kind = "static")]
@@ -318,6 +321,38 @@ macro_rules! add_op_impl {
                 unsafe { $neg_fn(y, x) }
             }
         }
+        impl<'a> Add for &'a $t {
+            type Output = $t;
+            fn add(self, other: &$t) -> $t {
+                let mut v = unsafe { <$t>::uninit() };
+                <$t>::add(&mut v, &self, &other);
+                v
+            }
+        }
+        impl<'a> AddAssign<&'a $t> for $t {
+            fn add_assign(&mut self, other: &$t) {
+                // how can I write this?
+                // unsafe { <$t>::add(&mut self, &self, &other); }
+                let mut v = unsafe { <$t>::uninit() };
+                <$t>::add(&mut v, &self, &other);
+                *self = v;
+            }
+        }
+        impl<'a> Sub for &'a $t {
+            type Output = $t;
+            fn sub(self, other: &$t) -> $t {
+                let mut v = unsafe { <$t>::uninit() };
+                <$t>::sub(&mut v, &self, &other);
+                v
+            }
+        }
+        impl<'a> SubAssign<&'a $t> for $t {
+            fn sub_assign(&mut self, other: &$t) {
+                let mut v = unsafe { <$t>::uninit() };
+                <$t>::sub(&mut v, &self, &other);
+                *self = v;
+            }
+        }
     };
 }
 
@@ -337,6 +372,36 @@ macro_rules! field_mul_op_impl {
                 unsafe { $sqr_fn(y, x) }
             }
         }
+        impl<'a> Mul for &'a $t {
+            type Output = $t;
+            fn mul(self, other: &$t) -> $t {
+                let mut v = unsafe { <$t>::uninit() };
+                <$t>::mul(&mut v, &self, &other);
+                v
+            }
+        }
+        impl<'a> MulAssign<&'a $t> for $t {
+            fn mul_assign(&mut self, other: &$t) {
+                let mut v = unsafe { <$t>::uninit() };
+                <$t>::mul(&mut v, &self, &other);
+                *self = v;
+            }
+        }
+        impl<'a> Div for &'a $t {
+            type Output = $t;
+            fn div(self, other: &$t) -> $t {
+                let mut v = unsafe { <$t>::uninit() };
+                <$t>::div(&mut v, &self, &other);
+                v
+            }
+        }
+        impl<'a> DivAssign<&'a $t> for $t {
+            fn div_assign(&mut self, other: &$t) {
+                let mut v = unsafe { <$t>::uninit() };
+                <$t>::div(&mut v, &self, &other);
+                *self = v;
+            }
+        }
     };
 }
 
@@ -354,58 +419,6 @@ macro_rules! ec_impl {
             }
             pub fn set_hash_of(&mut self, buf: &[u8]) -> bool {
                 unsafe { $set_hash_and_map_fn(self, buf.as_ptr(), buf.len()) == 0 }
-            }
-        }
-    };
-}
-
-macro_rules! mul_impl {
-    ($t:ty, $u:ty, $fn:ident) => {
-        impl Mul<$u> for $t {
-            type Output = $t;
-
-            #[inline]
-            fn mul(self, other: $u) -> $t {
-                let mut result = <$t>::default();
-                unsafe {
-                    $fn(&mut result, &self, &other);
-                }
-                result
-            }
-        }
-
-        forward_ref_binop! { impl Mul, mul for $t, $u }
-    };
-}
-
-// implements binary operators "&T op U", "T op &U", "&T op &U"
-// based on "T op U" where T and U are expected to be `Copy`able
-macro_rules! forward_ref_binop {
-    (impl $imp:ident, $method:ident for $t:ty, $u:ty) => {
-        impl<'a> $imp<$u> for &'a $t {
-            type Output = <$t as $imp<$u>>::Output;
-
-            #[inline]
-            fn $method(self, other: $u) -> <$t as $imp<$u>>::Output {
-                $imp::$method(self.clone(), other)
-            }
-        }
-
-        impl<'a> $imp<&'a $u> for $t {
-            type Output = <$t as $imp<$u>>::Output;
-
-            #[inline]
-            fn $method(self, other: &'a $u) -> <$t as $imp<$u>>::Output {
-                $imp::$method(self, other.clone())
-            }
-        }
-
-        impl<'a, 'b> $imp<&'a $u> for &'b $t {
-            type Output = <$t as $imp<$u>>::Output;
-
-            #[inline]
-            fn $method(self, other: &'a $u) -> <$t as $imp<$u>>::Output {
-                $imp::$method(self.clone(), other.clone())
             }
         }
     };
@@ -497,7 +510,6 @@ base_field_impl![
 ];
 add_op_impl![Fr, mclBnFr_add, mclBnFr_sub, mclBnFr_neg];
 field_mul_op_impl![Fr, mclBnFr_mul, mclBnFr_div, mclBnFr_inv, mclBnFr_sqr];
-mul_impl![Fr, Fr, mclBnFr_mul];
 
 #[derive(Default, Debug, Clone)]
 #[repr(C)]

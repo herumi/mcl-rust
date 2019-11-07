@@ -37,17 +37,33 @@ macro_rules! field_test {
         <$t>::add(&mut z, &x, &y);
         w.set_int(a + b);
         assert_eq!(z, w);
+        assert_eq!(w, (&x + &y));
+        z = x.clone();
+        z += &y;
+        assert_eq!(z, w);
 
         <$t>::sub(&mut z, &x, &y);
         w.set_int(a - b);
+        assert_eq!(z, w);
+        assert_eq!(w, (&x - &y));
+        z = x.clone();
+        z -= &y;
         assert_eq!(z, w);
 
         <$t>::mul(&mut z, &x, &y);
         w.set_int(a * b);
         assert_eq!(z, w);
+        assert_eq!(w, (&x * &y));
+        z = x.clone();
+        z *= &y;
+        assert_eq!(z, w);
 
         <$t>::div(&mut z, &x, &y);
         w.set_int(a / b);
+        assert_eq!(z, w);
+        assert_eq!(z, (&x / &y));
+        z = x.clone();
+        z /= &y;
         assert_eq!(z, w);
 
         assert!(x.set_little_endian_mod(&[1, 2, 3, 4, 5]));
@@ -79,13 +95,26 @@ macro_rules! ec_test {
 
         <$t>::dbl(&mut P1, &$P);
         let mut P2: $t = unsafe { <$t>::uninit() };
+        let mut P3: $t = unsafe { <$t>::uninit() };
         <$t>::add(&mut P2, &$P, &$P);
         assert_eq!(P2, P1);
+        <$t>::add(&mut P3, &P2, &$P);
+        assert_eq!(P3, (&P2 + &$P));
+        assert_eq!(P2, (&P3 - &$P));
         let mut y: Fr = Fr::from_int(1);
         <$t>::mul(&mut P2, &$P, &y);
         assert_eq!(P2, $P);
         y.set_int(2);
         <$t>::mul(&mut P2, &$P, &y);
+        assert_eq!(P2, P1);
+        y.set_int(3);
+        <$t>::mul(&mut P2, &$P, &y);
+        assert_eq!(P2, P3);
+        P2 = P1.clone();
+        P2 += &$P;
+        assert_eq!(P2, P3);
+
+        P2 -= &$P;
         assert_eq!(P2, P1);
     };
 }
