@@ -186,7 +186,7 @@ macro_rules! common_impl {
                 Default::default()
             }
             pub unsafe fn uninit() -> $t {
-                std::mem::uninitialized()
+                std::mem::MaybeUninit::uninit().assume_init()
             }
             pub fn clear(&mut self) {
                 *self = <$t>::zero()
