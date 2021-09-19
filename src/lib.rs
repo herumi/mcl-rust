@@ -172,7 +172,7 @@ pub enum CurveType {
 const MCLBN_FP_UNIT_SIZE: usize = 6;
 const MCLBN_FR_UNIT_SIZE: usize = 4;
 const MCLBN_COMPILED_TIME_VAR: c_int =
-    (MCLBN_FR_UNIT_SIZE as c_int * 10 + MCLBN_FP_UNIT_SIZE as c_int);
+    MCLBN_FR_UNIT_SIZE as c_int * 10 + MCLBN_FP_UNIT_SIZE as c_int;
 
 macro_rules! common_impl {
     ($t:ty, $is_equal_fn:ident, $is_zero_fn:ident) => {
