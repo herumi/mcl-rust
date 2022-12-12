@@ -187,7 +187,9 @@ macro_rules! common_impl {
                 Default::default()
             }
             pub unsafe fn uninit() -> $t {
-                std::mem::MaybeUninit::uninit().assume_init()
+                let u = MaybeUninit::<$t>::uninit();
+                let v = unsafe { u.assume_init() };
+                v
             }
             pub fn clear(&mut self) {
                 *self = <$t>::zero()
@@ -247,7 +249,8 @@ macro_rules! str_impl {
                 unsafe { $set_str_fn(self, s.as_ptr(), s.len(), base) == 0 }
             }
             pub fn get_str(&self, io_mode: i32) -> String {
-                let mut buf: [u8; $maxBufSize] = unsafe { MaybeUninit::uninit().assume_init() };
+                let u = MaybeUninit::<[u8; $maxBufSize]>::uninit();
+                let mut buf = unsafe { u.assume_init() };
                 let n: usize;
                 unsafe {
                     n = $get_str_fn(buf.as_mut_ptr(), buf.len(), self, io_mode);
@@ -614,7 +617,8 @@ pub fn get_gt_serialized_size() -> u32 {
 
 macro_rules! get_str_impl {
     ($get_str_fn:ident) => {{
-        let mut buf: [u8; 256] = unsafe { MaybeUninit::uninit().assume_init() };
+        let u = MaybeUninit::<[u8; 256]>::uninit();
+        let mut buf = unsafe { u.assume_init() };
         let n: usize;
         unsafe {
             n = $get_str_fn(buf.as_mut_ptr(), buf.len());
