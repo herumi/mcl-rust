@@ -7,9 +7,7 @@ use std::os::raw::c_int;
 
 #[link(name = "mcl", kind = "static")]
 #[link(name = "mclbn384_256", kind = "static")]
-#[link(name = "gmp")]
 #[link(name = "stdc++")]
-#[link(name = "crypto")]
 #[allow(non_snake_case)]
 extern "C" {
     // global functions
