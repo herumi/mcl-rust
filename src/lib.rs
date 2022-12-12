@@ -166,6 +166,7 @@ pub enum CurveType {
     SNARK = 4,
     BLS12_381 = 5,
     BLS12_377 = 8,
+    #[allow(non_camel_case_types)]
     BN_P256 = 9,
 }
 
