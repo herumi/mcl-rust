@@ -167,6 +167,8 @@ pub enum CurveType {
     BN381 = 1,
     SNARK = 4,
     BLS12_381 = 5,
+    BLS12_377 = 8,
+    BN_P256 = 9,
 }
 
 const MCLBN_FP_UNIT_SIZE: usize = 6;
