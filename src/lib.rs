@@ -10,7 +10,6 @@ use core::ops::{Div, DivAssign};
 use core::ops::{Mul, MulAssign};
 use core::ops::{Sub, SubAssign};
 use core::primitive::str;
-use cty::c_int;
 
 #[link(name = "mcl", kind = "static")]
 #[link(name = "mclbn384_256", kind = "static")]
@@ -18,7 +17,7 @@ use cty::c_int;
 #[allow(non_snake_case)]
 extern "C" {
     // global functions
-    fn mclBn_init(curve: c_int, compiledTimeVar: c_int) -> c_int;
+    fn mclBn_init(curve: i32, compiledTimeVar: i32) -> i32;
     fn mclBn_getVersion() -> u32;
     fn mclBn_getFrByteSize() -> u32;
     fn mclBn_getFpByteSize() -> u32;
@@ -36,7 +35,7 @@ extern "C" {
     fn mclBnFr_isOdd(x: *const Fr) -> i32;
     fn mclBnFr_isNegative(x: *const Fr) -> i32;
 
-    fn mclBnFr_setStr(x: *mut Fr, buf: *const u8, bufSize: usize, ioMode: i32) -> c_int;
+    fn mclBnFr_setStr(x: *mut Fr, buf: *const u8, bufSize: usize, ioMode: i32) -> i32;
     fn mclBnFr_getStr(buf: *mut u8, maxBufSize: usize, x: *const Fr, ioMode: i32) -> usize;
     fn mclBnFr_serialize(buf: *mut u8, maxBufSize: usize, x: *const Fr) -> usize;
     fn mclBnFr_deserialize(x: *mut Fr, buf: *const u8, bufSize: usize) -> usize;
@@ -65,7 +64,7 @@ extern "C" {
     fn mclBnFp_isOdd(x: *const Fp) -> i32;
     fn mclBnFp_isNegative(x: *const Fp) -> i32;
 
-    fn mclBnFp_setStr(x: *mut Fp, buf: *const u8, bufSize: usize, ioMode: i32) -> c_int;
+    fn mclBnFp_setStr(x: *mut Fp, buf: *const u8, bufSize: usize, ioMode: i32) -> i32;
     fn mclBnFp_getStr(buf: *mut u8, maxBufSize: usize, x: *const Fp, ioMode: i32) -> usize;
     fn mclBnFp_serialize(buf: *mut u8, maxBufSize: usize, x: *const Fp) -> usize;
     fn mclBnFp_deserialize(x: *mut Fp, buf: *const u8, bufSize: usize) -> usize;
@@ -90,7 +89,7 @@ extern "C" {
     fn mclBnFp2_isEqual(x: *const Fp2, y: *const Fp2) -> i32;
     fn mclBnFp2_isZero(x: *const Fp2) -> i32;
 
-    fn mclBnFp2_setStr(x: *mut Fp2, buf: *const u8, bufSize: usize, ioMode: i32) -> c_int;
+    fn mclBnFp2_setStr(x: *mut Fp2, buf: *const u8, bufSize: usize, ioMode: i32) -> i32;
     fn mclBnFp2_getStr(buf: *mut u8, maxBufSize: usize, x: *const Fp2, ioMode: i32) -> usize;
     fn mclBnFp2_serialize(buf: *mut u8, maxBufSize: usize, x: *const Fp2) -> usize;
     fn mclBnFp2_deserialize(x: *mut Fp2, buf: *const u8, bufSize: usize) -> usize;
@@ -110,7 +109,7 @@ extern "C" {
     fn mclBnG1_isValid(x: *const G1) -> i32;
     fn mclBnG1_isZero(x: *const G1) -> i32;
 
-    fn mclBnG1_setStr(x: *mut G1, buf: *const u8, bufSize: usize, ioMode: i32) -> c_int;
+    fn mclBnG1_setStr(x: *mut G1, buf: *const u8, bufSize: usize, ioMode: i32) -> i32;
     fn mclBnG1_getStr(buf: *mut u8, maxBufSize: usize, x: *const G1, ioMode: i32) -> usize;
     fn mclBnG1_serialize(buf: *mut u8, maxBufSize: usize, x: *const G1) -> usize;
     fn mclBnG1_deserialize(x: *mut G1, buf: *const u8, bufSize: usize) -> usize;
@@ -122,14 +121,14 @@ extern "C" {
     fn mclBnG1_dbl(y: *mut G1, x: *const G1);
     fn mclBnG1_mul(z: *mut G1, x: *const G1, y: *const Fr);
     fn mclBnG1_normalize(y: *mut G1, x: *const G1);
-    fn mclBnG1_hashAndMapTo(x: *mut G1, buf: *const u8, bufSize: usize) -> c_int;
+    fn mclBnG1_hashAndMapTo(x: *mut G1, buf: *const u8, bufSize: usize) -> i32;
 
     // G2
     fn mclBnG2_isEqual(x: *const G2, y: *const G2) -> i32;
     fn mclBnG2_isValid(x: *const G2) -> i32;
     fn mclBnG2_isZero(x: *const G2) -> i32;
 
-    fn mclBnG2_setStr(x: *mut G2, buf: *const u8, bufSize: usize, ioMode: i32) -> c_int;
+    fn mclBnG2_setStr(x: *mut G2, buf: *const u8, bufSize: usize, ioMode: i32) -> i32;
     fn mclBnG2_getStr(buf: *mut u8, maxBufSize: usize, x: *const G2, ioMode: i32) -> usize;
     fn mclBnG2_serialize(buf: *mut u8, maxBufSize: usize, x: *const G2) -> usize;
     fn mclBnG2_deserialize(x: *mut G2, buf: *const u8, bufSize: usize) -> usize;
@@ -141,14 +140,14 @@ extern "C" {
     fn mclBnG2_dbl(y: *mut G2, x: *const G2);
     fn mclBnG2_mul(z: *mut G2, x: *const G2, y: *const Fr);
     fn mclBnG2_normalize(y: *mut G2, x: *const G2);
-    fn mclBnG2_hashAndMapTo(x: *mut G2, buf: *const u8, bufSize: usize) -> c_int;
+    fn mclBnG2_hashAndMapTo(x: *mut G2, buf: *const u8, bufSize: usize) -> i32;
 
     // GT
     fn mclBnGT_isEqual(x: *const GT, y: *const GT) -> i32;
     fn mclBnGT_isZero(x: *const GT) -> i32;
     fn mclBnGT_isOne(x: *const GT) -> i32;
 
-    fn mclBnGT_setStr(x: *mut GT, buf: *const u8, bufSize: usize, ioMode: i32) -> c_int;
+    fn mclBnGT_setStr(x: *mut GT, buf: *const u8, bufSize: usize, ioMode: i32) -> i32;
     fn mclBnGT_getStr(buf: *mut u8, maxBufSize: usize, x: *const GT, ioMode: i32) -> usize;
     fn mclBnGT_serialize(buf: *mut u8, maxBufSize: usize, x: *const GT) -> usize;
     fn mclBnGT_deserialize(x: *mut GT, buf: *const u8, bufSize: usize) -> usize;
@@ -179,8 +178,7 @@ pub enum CurveType {
 
 const MCLBN_FP_UNIT_SIZE: usize = 6;
 const MCLBN_FR_UNIT_SIZE: usize = 4;
-const MCLBN_COMPILED_TIME_VAR: c_int =
-    MCLBN_FR_UNIT_SIZE as c_int * 10 + MCLBN_FP_UNIT_SIZE as c_int;
+const MCLBN_COMPILED_TIME_VAR: i32 = MCLBN_FR_UNIT_SIZE as i32 * 10 + MCLBN_FP_UNIT_SIZE as i32;
 
 macro_rules! common_impl {
     ($t:ty, $is_equal_fn:ident, $is_zero_fn:ident) => {
@@ -599,7 +597,7 @@ pub fn get_version() -> u32 {
 }
 
 pub fn init(curve: CurveType) -> bool {
-    unsafe { mclBn_init(curve as c_int, MCLBN_COMPILED_TIME_VAR) == 0 }
+    unsafe { mclBn_init(curve as i32, MCLBN_COMPILED_TIME_VAR) == 0 }
 }
 
 pub fn get_fr_serialized_size() -> u32 {
