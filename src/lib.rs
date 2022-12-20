@@ -1,9 +1,16 @@
-use std::mem::MaybeUninit;
-use std::ops::{Add, AddAssign};
-use std::ops::{Div, DivAssign};
-use std::ops::{Mul, MulAssign};
-use std::ops::{Sub, SubAssign};
-use std::os::raw::c_int;
+#![no_std]
+
+extern crate alloc;
+
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::mem::MaybeUninit;
+use core::ops::{Add, AddAssign};
+use core::ops::{Div, DivAssign};
+use core::ops::{Mul, MulAssign};
+use core::ops::{Sub, SubAssign};
+use core::primitive::str;
+use cty::c_int;
 
 #[link(name = "mcl", kind = "static")]
 #[link(name = "mclbn384_256", kind = "static")]
@@ -258,7 +265,7 @@ macro_rules! str_impl {
                 if n == 0 {
                     panic!("mclBnFr_getStr");
                 }
-                unsafe { std::str::from_utf8_unchecked(&buf[0..n]).into() }
+                unsafe { core::str::from_utf8_unchecked(&buf[0..n]).into() }
             }
         }
     };
@@ -626,7 +633,7 @@ macro_rules! get_str_impl {
         if n == 0 {
             panic!("get_str");
         }
-        unsafe { std::str::from_utf8_unchecked(&buf[0..n]).into() }
+        unsafe { core::str::from_utf8_unchecked(&buf[0..n]).into() }
     }};
 }
 
