@@ -3,7 +3,13 @@
 This is a wrapper library of [mcl](https://github.com/herumi/mcl/),
 which is a portable and fast pairing-based cryptography library.
 
-# Test
+dependencies
+- clang compiler
+  (by default it uses the clang compiler, but you may avoid it using custom mcl and gcc.)
+
+# Custom MCL
+
+mcl-rust can use custom mcl with setting RUSTFLAGS.
 
 ```
 git clone https://github.com/herumi/mcl
