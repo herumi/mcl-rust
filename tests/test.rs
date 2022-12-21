@@ -82,7 +82,6 @@ macro_rules! field_test {
 
 macro_rules! ec_test {
     ($t:ty, $f:ty, $P:expr) => {
-        #[allow(non_snake_case)]
         assert!($P.is_valid());
         assert!(!$P.is_zero());
         let mut P1 = <$t>::zero();

@@ -1,19 +1,23 @@
-use std::mem::MaybeUninit;
-use std::ops::{Add, AddAssign};
-use std::ops::{Div, DivAssign};
-use std::ops::{Mul, MulAssign};
-use std::ops::{Sub, SubAssign};
-use std::os::raw::c_int;
+#![no_std]
+
+extern crate alloc;
+
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::mem::MaybeUninit;
+use core::ops::{Add, AddAssign};
+use core::ops::{Div, DivAssign};
+use core::ops::{Mul, MulAssign};
+use core::ops::{Sub, SubAssign};
+use core::primitive::str;
 
 #[link(name = "mcl", kind = "static")]
 #[link(name = "mclbn384_256", kind = "static")]
-#[link(name = "gmp")]
 #[link(name = "stdc++")]
-#[link(name = "crypto")]
 #[allow(non_snake_case)]
 extern "C" {
     // global functions
-    fn mclBn_init(curve: c_int, compiledTimeVar: c_int) -> c_int;
+    fn mclBn_init(curve: i32, compiledTimeVar: i32) -> i32;
     fn mclBn_getVersion() -> u32;
     fn mclBn_getFrByteSize() -> u32;
     fn mclBn_getFpByteSize() -> u32;
@@ -31,7 +35,7 @@ extern "C" {
     fn mclBnFr_isOdd(x: *const Fr) -> i32;
     fn mclBnFr_isNegative(x: *const Fr) -> i32;
 
-    fn mclBnFr_setStr(x: *mut Fr, buf: *const u8, bufSize: usize, ioMode: i32) -> c_int;
+    fn mclBnFr_setStr(x: *mut Fr, buf: *const u8, bufSize: usize, ioMode: i32) -> i32;
     fn mclBnFr_getStr(buf: *mut u8, maxBufSize: usize, x: *const Fr, ioMode: i32) -> usize;
     fn mclBnFr_serialize(buf: *mut u8, maxBufSize: usize, x: *const Fr) -> usize;
     fn mclBnFr_deserialize(x: *mut Fr, buf: *const u8, bufSize: usize) -> usize;
@@ -60,7 +64,7 @@ extern "C" {
     fn mclBnFp_isOdd(x: *const Fp) -> i32;
     fn mclBnFp_isNegative(x: *const Fp) -> i32;
 
-    fn mclBnFp_setStr(x: *mut Fp, buf: *const u8, bufSize: usize, ioMode: i32) -> c_int;
+    fn mclBnFp_setStr(x: *mut Fp, buf: *const u8, bufSize: usize, ioMode: i32) -> i32;
     fn mclBnFp_getStr(buf: *mut u8, maxBufSize: usize, x: *const Fp, ioMode: i32) -> usize;
     fn mclBnFp_serialize(buf: *mut u8, maxBufSize: usize, x: *const Fp) -> usize;
     fn mclBnFp_deserialize(x: *mut Fp, buf: *const u8, bufSize: usize) -> usize;
@@ -85,7 +89,7 @@ extern "C" {
     fn mclBnFp2_isEqual(x: *const Fp2, y: *const Fp2) -> i32;
     fn mclBnFp2_isZero(x: *const Fp2) -> i32;
 
-    fn mclBnFp2_setStr(x: *mut Fp2, buf: *const u8, bufSize: usize, ioMode: i32) -> c_int;
+    fn mclBnFp2_setStr(x: *mut Fp2, buf: *const u8, bufSize: usize, ioMode: i32) -> i32;
     fn mclBnFp2_getStr(buf: *mut u8, maxBufSize: usize, x: *const Fp2, ioMode: i32) -> usize;
     fn mclBnFp2_serialize(buf: *mut u8, maxBufSize: usize, x: *const Fp2) -> usize;
     fn mclBnFp2_deserialize(x: *mut Fp2, buf: *const u8, bufSize: usize) -> usize;
@@ -105,7 +109,7 @@ extern "C" {
     fn mclBnG1_isValid(x: *const G1) -> i32;
     fn mclBnG1_isZero(x: *const G1) -> i32;
 
-    fn mclBnG1_setStr(x: *mut G1, buf: *const u8, bufSize: usize, ioMode: i32) -> c_int;
+    fn mclBnG1_setStr(x: *mut G1, buf: *const u8, bufSize: usize, ioMode: i32) -> i32;
     fn mclBnG1_getStr(buf: *mut u8, maxBufSize: usize, x: *const G1, ioMode: i32) -> usize;
     fn mclBnG1_serialize(buf: *mut u8, maxBufSize: usize, x: *const G1) -> usize;
     fn mclBnG1_deserialize(x: *mut G1, buf: *const u8, bufSize: usize) -> usize;
@@ -117,14 +121,14 @@ extern "C" {
     fn mclBnG1_dbl(y: *mut G1, x: *const G1);
     fn mclBnG1_mul(z: *mut G1, x: *const G1, y: *const Fr);
     fn mclBnG1_normalize(y: *mut G1, x: *const G1);
-    fn mclBnG1_hashAndMapTo(x: *mut G1, buf: *const u8, bufSize: usize) -> c_int;
+    fn mclBnG1_hashAndMapTo(x: *mut G1, buf: *const u8, bufSize: usize) -> i32;
 
     // G2
     fn mclBnG2_isEqual(x: *const G2, y: *const G2) -> i32;
     fn mclBnG2_isValid(x: *const G2) -> i32;
     fn mclBnG2_isZero(x: *const G2) -> i32;
 
-    fn mclBnG2_setStr(x: *mut G2, buf: *const u8, bufSize: usize, ioMode: i32) -> c_int;
+    fn mclBnG2_setStr(x: *mut G2, buf: *const u8, bufSize: usize, ioMode: i32) -> i32;
     fn mclBnG2_getStr(buf: *mut u8, maxBufSize: usize, x: *const G2, ioMode: i32) -> usize;
     fn mclBnG2_serialize(buf: *mut u8, maxBufSize: usize, x: *const G2) -> usize;
     fn mclBnG2_deserialize(x: *mut G2, buf: *const u8, bufSize: usize) -> usize;
@@ -136,14 +140,14 @@ extern "C" {
     fn mclBnG2_dbl(y: *mut G2, x: *const G2);
     fn mclBnG2_mul(z: *mut G2, x: *const G2, y: *const Fr);
     fn mclBnG2_normalize(y: *mut G2, x: *const G2);
-    fn mclBnG2_hashAndMapTo(x: *mut G2, buf: *const u8, bufSize: usize) -> c_int;
+    fn mclBnG2_hashAndMapTo(x: *mut G2, buf: *const u8, bufSize: usize) -> i32;
 
     // GT
     fn mclBnGT_isEqual(x: *const GT, y: *const GT) -> i32;
     fn mclBnGT_isZero(x: *const GT) -> i32;
     fn mclBnGT_isOne(x: *const GT) -> i32;
 
-    fn mclBnGT_setStr(x: *mut GT, buf: *const u8, bufSize: usize, ioMode: i32) -> c_int;
+    fn mclBnGT_setStr(x: *mut GT, buf: *const u8, bufSize: usize, ioMode: i32) -> i32;
     fn mclBnGT_getStr(buf: *mut u8, maxBufSize: usize, x: *const GT, ioMode: i32) -> usize;
     fn mclBnGT_serialize(buf: *mut u8, maxBufSize: usize, x: *const GT) -> usize;
     fn mclBnGT_deserialize(x: *mut GT, buf: *const u8, bufSize: usize) -> usize;
@@ -167,12 +171,14 @@ pub enum CurveType {
     BN381 = 1,
     SNARK = 4,
     BLS12_381 = 5,
+    BLS12_377 = 8,
+    #[allow(non_camel_case_types)]
+    BN_P256 = 9,
 }
 
 const MCLBN_FP_UNIT_SIZE: usize = 6;
 const MCLBN_FR_UNIT_SIZE: usize = 4;
-const MCLBN_COMPILED_TIME_VAR: c_int =
-    MCLBN_FR_UNIT_SIZE as c_int * 10 + MCLBN_FP_UNIT_SIZE as c_int;
+const MCLBN_COMPILED_TIME_VAR: i32 = MCLBN_FR_UNIT_SIZE as i32 * 10 + MCLBN_FP_UNIT_SIZE as i32;
 
 macro_rules! common_impl {
     ($t:ty, $is_equal_fn:ident, $is_zero_fn:ident) => {
@@ -186,7 +192,9 @@ macro_rules! common_impl {
                 Default::default()
             }
             pub unsafe fn uninit() -> $t {
-                std::mem::MaybeUninit::uninit().assume_init()
+                let u = MaybeUninit::<$t>::uninit();
+                let v = unsafe { u.assume_init() };
+                v
             }
             pub fn clear(&mut self) {
                 *self = <$t>::zero()
@@ -246,7 +254,8 @@ macro_rules! str_impl {
                 unsafe { $set_str_fn(self, s.as_ptr(), s.len(), base) == 0 }
             }
             pub fn get_str(&self, io_mode: i32) -> String {
-                let mut buf: [u8; $maxBufSize] = unsafe { MaybeUninit::uninit().assume_init() };
+                let u = MaybeUninit::<[u8; $maxBufSize]>::uninit();
+                let mut buf = unsafe { u.assume_init() };
                 let n: usize;
                 unsafe {
                     n = $get_str_fn(buf.as_mut_ptr(), buf.len(), self, io_mode);
@@ -254,7 +263,7 @@ macro_rules! str_impl {
                 if n == 0 {
                     panic!("mclBnFr_getStr");
                 }
-                unsafe { std::str::from_utf8_unchecked(&buf[0..n]).into() }
+                unsafe { core::str::from_utf8_unchecked(&buf[0..n]).into() }
             }
         }
     };
@@ -588,7 +597,7 @@ pub fn get_version() -> u32 {
 }
 
 pub fn init(curve: CurveType) -> bool {
-    unsafe { mclBn_init(curve as c_int, MCLBN_COMPILED_TIME_VAR) == 0 }
+    unsafe { mclBn_init(curve as i32, MCLBN_COMPILED_TIME_VAR) == 0 }
 }
 
 pub fn get_fr_serialized_size() -> u32 {
@@ -613,7 +622,8 @@ pub fn get_gt_serialized_size() -> u32 {
 
 macro_rules! get_str_impl {
     ($get_str_fn:ident) => {{
-        let mut buf: [u8; 256] = unsafe { MaybeUninit::uninit().assume_init() };
+        let u = MaybeUninit::<[u8; 256]>::uninit();
+        let mut buf = unsafe { u.assume_init() };
         let n: usize;
         unsafe {
             n = $get_str_fn(buf.as_mut_ptr(), buf.len());
@@ -621,7 +631,7 @@ macro_rules! get_str_impl {
         if n == 0 {
             panic!("get_str");
         }
-        unsafe { std::str::from_utf8_unchecked(&buf[0..n]).into() }
+        unsafe { core::str::from_utf8_unchecked(&buf[0..n]).into() }
     }};
 }
 
