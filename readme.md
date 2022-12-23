@@ -5,6 +5,7 @@ which is a portable and fast pairing-based cryptography library.
 
 dependencies
 - clang compiler
+  (by default it uses the clang compiler, but you may avoid it using custom mcl and gcc.)
 
 # Custom MCL
 
