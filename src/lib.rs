@@ -89,8 +89,6 @@ extern "C" {
     fn mclBnFp2_isEqual(x: *const Fp2, y: *const Fp2) -> i32;
     fn mclBnFp2_isZero(x: *const Fp2) -> i32;
 
-    fn mclBnFp2_setStr(x: *mut Fp2, buf: *const u8, bufSize: usize, ioMode: i32) -> i32;
-    fn mclBnFp2_getStr(buf: *mut u8, maxBufSize: usize, x: *const Fp2, ioMode: i32) -> usize;
     fn mclBnFp2_serialize(buf: *mut u8, maxBufSize: usize, x: *const Fp2) -> usize;
     fn mclBnFp2_deserialize(x: *mut Fp2, buf: *const u8, bufSize: usize) -> usize;
 
@@ -478,7 +476,6 @@ serialize_impl![
     mclBnFp2_serialize,
     mclBnFp2_deserialize
 ];
-str_impl![Fp2, 1024, mclBnFp2_getStr, mclBnFp2_setStr];
 add_op_impl![Fp2, mclBnFp2_add, mclBnFp2_sub, mclBnFp2_neg];
 field_mul_op_impl![Fp2, mclBnFp2_mul, mclBnFp2_div, mclBnFp2_inv, mclBnFp2_sqr];
 impl Fp2 {
