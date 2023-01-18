@@ -449,7 +449,7 @@ serialize_impl![
     mclBnFp_serialize,
     mclBnFp_deserialize
 ];
-str_impl![Fp, 1024, mclBnFp_getStr, mclBnFp_setStr];
+str_impl![Fp, 128, mclBnFp_getStr, mclBnFp_setStr];
 int_impl![Fp, mclBnFp_setInt32, mclBnFp_isOne];
 base_field_impl![
     Fp,
@@ -502,7 +502,7 @@ serialize_impl![
     mclBnFr_serialize,
     mclBnFr_deserialize
 ];
-str_impl![Fr, 1024, mclBnFr_getStr, mclBnFr_setStr];
+str_impl![Fr, 128, mclBnFr_getStr, mclBnFr_setStr];
 int_impl![Fr, mclBnFr_setInt32, mclBnFr_isOne];
 base_field_impl![
     Fr,
@@ -532,7 +532,7 @@ serialize_impl![
     mclBnG1_serialize,
     mclBnG1_deserialize
 ];
-str_impl![G1, 1024, mclBnG1_getStr, mclBnG1_setStr];
+str_impl![G1, 128 * 3, mclBnG1_getStr, mclBnG1_setStr];
 add_op_impl![G1, mclBnG1_add, mclBnG1_sub, mclBnG1_neg];
 ec_impl![
     G1,
@@ -557,7 +557,7 @@ serialize_impl![
     mclBnG2_serialize,
     mclBnG2_deserialize
 ];
-str_impl![G2, 1024, mclBnG2_getStr, mclBnG2_setStr];
+str_impl![G2, 128 * 3 * 2, mclBnG2_getStr, mclBnG2_setStr];
 add_op_impl![G2, mclBnG2_add, mclBnG2_sub, mclBnG2_neg];
 ec_impl![
     G2,
@@ -579,7 +579,7 @@ serialize_impl![
     mclBnGT_serialize,
     mclBnGT_deserialize
 ];
-str_impl![GT, 1024, mclBnGT_getStr, mclBnGT_setStr];
+str_impl![GT, 128 * 12, mclBnGT_getStr, mclBnGT_setStr];
 int_impl![GT, mclBnGT_setInt32, mclBnGT_isOne];
 add_op_impl![GT, mclBnGT_add, mclBnGT_sub, mclBnGT_neg];
 field_mul_op_impl![GT, mclBnGT_mul, mclBnGT_div, mclBnGT_inv, mclBnGT_sqr];

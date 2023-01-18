@@ -127,6 +127,17 @@ macro_rules! serialize_test {
     };
 }
 
+macro_rules! str_test {
+    ($t:ty, $x:expr) => {
+        for base in [10, 16] {
+            let s = $x.get_str(base);
+            let mut y: $t = unsafe { <$t>::uninit() };
+            assert!(y.set_str(&s, base));
+            assert_eq!($x, y);
+        }
+    };
+}
+
 #[test]
 #[allow(non_snake_case)]
 fn test() {
@@ -170,4 +181,10 @@ fn test() {
     serialize_test! {G2, Q};
     serialize_test! {GT, e};
     serialize_test! {Fp2, Q.x};
+
+    str_test! {Fr,x};
+    str_test! {Fp, y};
+    str_test! {G1, P};
+    str_test! {G2, Q};
+    str_test! {GT, e};
 }
