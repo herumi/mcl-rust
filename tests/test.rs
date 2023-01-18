@@ -169,4 +169,5 @@ fn test() {
     serialize_test! {G1, P};
     serialize_test! {G2, Q};
     serialize_test! {GT, e};
+    serialize_test! {Fp2, Q.x};
 }
