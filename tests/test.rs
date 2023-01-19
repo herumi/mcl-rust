@@ -115,6 +115,8 @@ macro_rules! ec_test {
 
         P2 -= &$P;
         assert_eq!(P2, P1);
+        P1.set_hash_of(b"abcd");
+        assert!(P1.is_valid());
     };
 }
 
