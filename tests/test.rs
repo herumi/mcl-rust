@@ -26,6 +26,14 @@ macro_rules! field_test {
         assert!(!x.is_negative());
         x.set_int(-124);
         assert!(x.is_negative());
+        x.set_int(5);
+        y.set_int(2);
+        assert_eq!(x.cmp(&y), 1);
+        assert_eq!(x.cmp(&x), 0);
+        assert_eq!(y.cmp(&x), -1);
+        y.set_int(-2); // unsigned large number
+        assert_eq!(x.cmp(&y), -1);
+        assert_eq!(y.cmp(&x), 1);
 
         let mut z = unsafe { <$t>::uninit() };
         let mut w = unsafe { <$t>::uninit() };
