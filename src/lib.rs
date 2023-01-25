@@ -34,6 +34,7 @@ extern "C" {
     fn mclBnFr_isOne(x: *const Fr) -> i32;
     fn mclBnFr_isOdd(x: *const Fr) -> i32;
     fn mclBnFr_isNegative(x: *const Fr) -> i32;
+    fn mclBnFr_cmp(x: *const Fr, y: *const Fr) -> i32;
 
     fn mclBnFr_setStr(x: *mut Fr, buf: *const u8, bufSize: usize, ioMode: i32) -> i32;
     fn mclBnFr_getStr(buf: *mut u8, maxBufSize: usize, x: *const Fr, ioMode: i32) -> usize;
@@ -63,6 +64,7 @@ extern "C" {
     fn mclBnFp_isOne(x: *const Fp) -> i32;
     fn mclBnFp_isOdd(x: *const Fp) -> i32;
     fn mclBnFp_isNegative(x: *const Fp) -> i32;
+    fn mclBnFp_cmp(x: *const Fp, y: *const Fp) -> i32;
 
     fn mclBnFp_setStr(x: *mut Fp, buf: *const u8, bufSize: usize, ioMode: i32) -> i32;
     fn mclBnFp_getStr(buf: *mut u8, maxBufSize: usize, x: *const Fp, ioMode: i32) -> usize;
@@ -288,7 +290,7 @@ macro_rules! int_impl {
 }
 
 macro_rules! base_field_impl {
-    ($t:ty,  $set_little_endian_fn:ident, $set_little_endian_mod_fn:ident, $set_hash_of_fn:ident, $set_by_csprng_fn:ident, $is_odd_fn:ident, $is_negative_fn:ident, $square_root_fn:ident) => {
+    ($t:ty,  $set_little_endian_fn:ident, $set_little_endian_mod_fn:ident, $set_hash_of_fn:ident, $set_by_csprng_fn:ident, $is_odd_fn:ident, $is_negative_fn:ident, $cmp_fn:ident, $square_root_fn:ident) => {
         impl $t {
             pub fn set_little_endian(&mut self, buf: &[u8]) -> bool {
                 unsafe { $set_little_endian_fn(self, buf.as_ptr(), buf.len()) == 0 }
@@ -307,6 +309,9 @@ macro_rules! base_field_impl {
             }
             pub fn is_negative(&self) -> bool {
                 unsafe { $is_negative_fn(self) == 1 }
+            }
+            pub fn cmp(&self, rhs: &$t) -> i32 {
+                unsafe { $cmp_fn(self, rhs) }
             }
             pub fn square_root(y: &mut $t, x: &$t) -> bool {
                 unsafe { $square_root_fn(y, x) == 0 }
@@ -459,6 +464,7 @@ base_field_impl![
     mclBnFp_setByCSPRNG,
     mclBnFp_isOdd,
     mclBnFp_isNegative,
+    mclBnFp_cmp,
     mclBnFp_squareRoot
 ];
 add_op_impl![Fp, mclBnFp_add, mclBnFp_sub, mclBnFp_neg];
@@ -512,6 +518,7 @@ base_field_impl![
     mclBnFr_setByCSPRNG,
     mclBnFr_isOdd,
     mclBnFr_isNegative,
+    mclBnFr_cmp,
     mclBnFr_squareRoot
 ];
 add_op_impl![Fr, mclBnFr_add, mclBnFr_sub, mclBnFr_neg];
