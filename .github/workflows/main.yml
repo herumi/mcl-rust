@@ -8,6 +8,6 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - run: sudo apt update
-    - run: git clone --depth 1 https://github.com/herumi/mcl
-    - run: cd mcl && make -j3 lib/libmcl.a lib/libmclbn384_256.a
-    - run: env RUSTFLAGS="-L./mcl/lib" cargo test
+    - run: git submodule update --init --recursive
+    - run: cargo build
+    - run: cargo test
