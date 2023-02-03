@@ -14,7 +14,7 @@ fn main() {
     let output = Command::new("sh")
         .args(["-c", &cmd])
         .output()
-        .expect(&"fail");
+        .expect("fail");
     if !output.status.success() {
         panic!(
             "error:{}",
