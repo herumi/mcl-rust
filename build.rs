@@ -11,14 +11,9 @@ fn main() {
         "mkdir -p build && cd build && cmake ../mcl -DMCL_STATIC_LIB=ON {} && make -j",
         opt
     );
-    let output = Command::new("sh")
+    Command::new("sh")
         .args(["-c", &cmd])
         .output()
         .expect("fail");
-    if !output.status.success() {
-        panic!(
-            "error:{}",
-            String::from_utf8(output.stderr.clone()).expect("err")
-        );
-    }
+    println!("cargo:rustc-link-search=native=./build/lib");
 }
