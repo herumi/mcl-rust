@@ -8,7 +8,7 @@ fn main() {
     };
 
     let cmd = format!(
-        "mkdir -p build && cd build && cmake ../mcl -DMCL_STATIC_LIB=ON {} && make -j",
+        "mkdir -p build && cd build && cmake ../mcl -DMCL_STATIC_LIB=ON -DMCL_STANDALONE=ON {} && make -j",
         opt
     );
     Command::new("sh")
