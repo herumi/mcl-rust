@@ -13,7 +13,7 @@ use core::primitive::str;
 
 #[link(name = "mcl", kind = "static")]
 #[link(name = "mclbn384_256", kind = "static")]
-#[link(name = "stdc++")]
+#[cfg_attr(target_arch = "x86_64", link(name = "stdc++"))]
 #[allow(non_snake_case)]
 extern "C" {
     // global functions
@@ -343,11 +343,10 @@ macro_rules! add_op_impl {
         }
         impl<'a> AddAssign<&'a $t> for $t {
             fn add_assign(&mut self, other: &$t) {
-                // how can I write this?
-                // unsafe { <$t>::add(&mut self, &self, &other); }
-                let mut v = unsafe { <$t>::uninit() };
-                <$t>::add(&mut v, &self, &other);
-                *self = v;
+                let z: *mut $t = self;
+                unsafe {
+                    $add_fn(z, z as *const $t, other as *const $t);
+                }
             }
         }
         impl<'a> Sub for &'a $t {
@@ -360,9 +359,10 @@ macro_rules! add_op_impl {
         }
         impl<'a> SubAssign<&'a $t> for $t {
             fn sub_assign(&mut self, other: &$t) {
-                let mut v = unsafe { <$t>::uninit() };
-                <$t>::sub(&mut v, &self, &other);
-                *self = v;
+                let z: *mut $t = self;
+                unsafe {
+                    $sub_fn(z, z as *const $t, other as *const $t);
+                }
             }
         }
     };
@@ -394,9 +394,10 @@ macro_rules! field_mul_op_impl {
         }
         impl<'a> MulAssign<&'a $t> for $t {
             fn mul_assign(&mut self, other: &$t) {
-                let mut v = unsafe { <$t>::uninit() };
-                <$t>::mul(&mut v, &self, &other);
-                *self = v;
+                let z: *mut $t = self;
+                unsafe {
+                    $mul_fn(z, z as *const $t, other as *const $t);
+                }
             }
         }
         impl<'a> Div for &'a $t {
@@ -409,9 +410,10 @@ macro_rules! field_mul_op_impl {
         }
         impl<'a> DivAssign<&'a $t> for $t {
             fn div_assign(&mut self, other: &$t) {
-                let mut v = unsafe { <$t>::uninit() };
-                <$t>::div(&mut v, &self, &other);
-                *self = v;
+                let z: *mut $t = self;
+                unsafe {
+                    $div_fn(z, z as *const $t, other as *const $t);
+                }
             }
         }
     };
