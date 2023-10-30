@@ -125,6 +125,28 @@ macro_rules! ec_test {
         assert_eq!(P2, P1);
         P1.set_hash_of(b"abcd");
         assert!(P1.is_valid());
+
+        // mul_vec test
+        let tbl = [0, 1, 2, 3, 4, 15, 16, 50, 300];
+        for n in tbl {
+            let mut xs: Vec<$t> = Vec::new();
+            let mut ys: Vec<Fr> = Vec::new();
+            xs.resize_with(n, Default::default);
+            ys.resize_with(n, Default::default);
+            let mut y = <Fr>::zero();
+            for i in 0..n {
+                ys[i].set_by_csprng();
+                <$t>::mul(&mut xs[i], &$P, &ys[i]);
+                let mut yy = unsafe { Fr::uninit() };
+                <Fr>::sqr(&mut yy, &ys[i]);
+                y += &yy;
+            }
+            let mut g1 = unsafe { <$t>::uninit() };
+            let mut g2 = unsafe { <$t>::uninit() };
+            <$t>::mul_vec(&mut g1, &xs, &ys);
+            <$t>::mul(&mut g2, &$P, &y);
+            assert_eq!(g1, g2);
+        }
     };
 }
 
