@@ -122,6 +122,7 @@ extern "C" {
     fn mclBnG1_mul(z: *mut G1, x: *const G1, y: *const Fr);
     fn mclBnG1_normalize(y: *mut G1, x: *const G1);
     fn mclBnG1_hashAndMapTo(x: *mut G1, buf: *const u8, bufSize: usize) -> i32;
+    fn mclBnG1_mulVec(z: *mut G1, x: *const G1, y: *const Fr, n: usize);
 
     // G2
     fn mclBnG2_isEqual(x: *const G2, y: *const G2) -> i32;
@@ -141,6 +142,7 @@ extern "C" {
     fn mclBnG2_mul(z: *mut G2, x: *const G2, y: *const Fr);
     fn mclBnG2_normalize(y: *mut G2, x: *const G2);
     fn mclBnG2_hashAndMapTo(x: *mut G2, buf: *const u8, bufSize: usize) -> i32;
+    fn mclBnG2_mulVec(z: *mut G2, x: *const G2, y: *const Fr, n: usize);
 
     // GT
     fn mclBnGT_isEqual(x: *const GT, y: *const GT) -> i32;
@@ -420,7 +422,7 @@ macro_rules! field_mul_op_impl {
 }
 
 macro_rules! ec_impl {
-    ($t:ty, $dbl_fn:ident, $mul_fn:ident, $normalize_fn:ident, $set_hash_and_map_fn:ident) => {
+    ($t:ty, $dbl_fn:ident, $mul_fn:ident, $normalize_fn:ident, $set_hash_and_map_fn:ident, $mul_vec_fn:ident) => {
         impl $t {
             pub fn dbl(y: &mut $t, x: &$t) {
                 unsafe { $dbl_fn(y, x) }
@@ -433,6 +435,9 @@ macro_rules! ec_impl {
             }
             pub fn set_hash_of(&mut self, buf: &[u8]) -> bool {
                 unsafe { $set_hash_and_map_fn(self, buf.as_ptr(), buf.len()) == 0 }
+            }
+            pub fn mul_vec(z: &mut $t, x: &[$t], y: &[Fr]) {
+                unsafe { $mul_vec_fn(z, x.as_ptr(), y.as_ptr(), x.len()) }
             }
         }
     };
@@ -548,7 +553,8 @@ ec_impl![
     mclBnG1_dbl,
     mclBnG1_mul,
     mclBnG1_normalize,
-    mclBnG1_hashAndMapTo
+    mclBnG1_hashAndMapTo,
+    mclBnG1_mulVec
 ];
 
 #[derive(Default, Debug, Clone)]
@@ -573,7 +579,8 @@ ec_impl![
     mclBnG2_dbl,
     mclBnG2_mul,
     mclBnG2_normalize,
-    mclBnG2_hashAndMapTo
+    mclBnG2_hashAndMapTo,
+    mclBnG2_mulVec
 ];
 
 #[derive(Default, Debug, Clone)]
