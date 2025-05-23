@@ -12,7 +12,6 @@ use core::ops::{Sub, SubAssign};
 use core::primitive::str;
 
 #[link(name = "mcl", kind = "static")]
-#[link(name = "mclbn384_256", kind = "static")]
 #[cfg_attr(target_arch = "x86_64", link(name = "stdc++"))]
 #[allow(non_snake_case)]
 extern "C" {
