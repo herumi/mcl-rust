@@ -167,6 +167,7 @@ extern "C" {
     fn mclBnGT_pow(z: *mut GT, x: *const GT, y: *const Fr);
 }
 
+#[derive(PartialEq, Copy, Clone)]
 pub enum CurveType {
     BN254 = 0,
     BN381 = 1,
