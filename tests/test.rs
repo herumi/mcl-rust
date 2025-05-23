@@ -145,7 +145,7 @@ macro_rules! ec_test {
             let mut g2 = unsafe { <$t>::uninit() };
             <$t>::mul_vec(&mut g1, &xs, &ys);
             <$t>::mul(&mut g2, &$P, &y);
-            assert_eq!(g1, g2);
+            assert_eq!(g1.get_str(16), g2.get_str(16));
         }
     };
 }
@@ -170,35 +170,68 @@ macro_rules! str_test {
     };
 }
 
-#[test]
 #[allow(non_snake_case)]
-fn test() {
+fn testCurve(curve: CurveType) {
     assert_eq!(mem::size_of::<Fr>(), 32);
     assert_eq!(mem::size_of::<Fp>(), 48);
     assert_eq!(mem::size_of::<Fp2>(), 48 * 2);
     assert_eq!(mem::size_of::<G1>(), 48 * 3);
     assert_eq!(mem::size_of::<G2>(), 48 * 2 * 3);
     assert_eq!(mem::size_of::<GT>(), 48 * 12);
-    assert!(init(CurveType::BLS12_381));
-    assert_eq!(get_fp_serialized_size(), 48);
-    assert_eq!(get_g1_serialized_size(), 48);
-    assert_eq!(get_g2_serialized_size(), 48 * 2);
-    assert_eq!(get_gt_serialized_size(), 48 * 12);
+    assert!(init(curve));
+    let b = match curve {
+        CurveType::BN254 => 32,
+        _ => 48,
+    };
+    assert_eq!(get_fp_serialized_size(), b);
+    assert_eq!(get_g1_serialized_size(), b);
+    assert_eq!(get_g2_serialized_size(), b * 2);
+    assert_eq!(get_gt_serialized_size(), b * 12);
     assert_eq!(get_fr_serialized_size(), 32);
-
-    // Fp
-    assert_eq!(get_field_order(), "4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787");
-    // Fr
-    assert_eq!(
-        get_curve_order(),
-        "52435875175126190479447740508185965837690552500527637822603658699938581184513"
-    );
 
     field_test! {Fr};
     field_test! {Fp};
 
-    let P = G1::from_str("1 3685416753713387016781088315183077757961620795782546409894578378688607592378376318836054947676345821548104185464507 1339506544944476473020471379941921221584933875938349620426543736416511423956333506472724655353366534992391756441569", 10).unwrap();
-    let Q = G2::from_str("1 352701069587466618187139116011060144890029952792775240219908644239793785735715026873347600343865175952761926303160 3059144344244213709971259814753781636986470325476647558659373206291635324768958432433509563104347017837885763365758 1985150602287291935568054521177171638300868978215655730859378665066344726373823718423869104263333984641494340347905 927553665492332455747201965776037880757740193453592970025027978793976877002675564980949289727957565575433344219582", 10).unwrap();
+    let mut P = G1::zero();
+    let mut Q = G2::zero();
+    P.set_hash_of(b"abc");
+    Q.set_hash_of(b"abc");
+
+    match curve {
+        CurveType::BN254 => {
+            // Fp
+            assert_eq!(
+                get_field_order(),
+                "16798108731015832284940804142231733909889187121439069848933715426072753864723"
+            );
+            // Fr
+            assert_eq!(
+                get_curve_order(),
+                "16798108731015832284940804142231733909759579603404752749028378864165570215949"
+            );
+        }
+        CurveType::BLS12_381 => {
+            // Fp
+            assert_eq!(get_field_order(), "4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787");
+            // Fr
+            assert_eq!(
+                get_curve_order(),
+                "52435875175126190479447740508185965837690552500527637822603658699938581184513"
+            );
+        }
+        CurveType::BLS12_377 => {
+            // Fp
+            assert_eq!(get_field_order(), "258664426012969094010652733694893533536393512754914660539884262666720468348340822774968888139573360124440321458177");
+            // Fr
+            assert_eq!(
+                get_curve_order(),
+                "8444461749428370424248824938781546531375899335154063827935233455917409239041"
+            );
+        }
+        _ => {
+            //			panic!("not supported curve");
+        }
+    }
 
     ec_test! {G1, Fp, P};
     ec_test! {G2, Fp2, Q};
@@ -219,4 +252,11 @@ fn test() {
     str_test! {G1, P};
     str_test! {G2, Q};
     str_test! {GT, e};
+}
+
+#[test]
+fn test_all() {
+    testCurve(CurveType::BN254);
+    testCurve(CurveType::BLS12_381);
+    testCurve(CurveType::BLS12_377);
 }
