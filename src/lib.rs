@@ -1,6 +1,7 @@
 #![no_std]
 
 extern crate alloc;
+extern crate link_cplusplus;
 
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -11,8 +12,6 @@ use core::ops::{Mul, MulAssign};
 use core::ops::{Sub, SubAssign};
 use core::primitive::str;
 
-#[link(name = "mcl", kind = "static")]
-#[cfg_attr(target_arch = "x86_64", link(name = "stdc++"))]
 #[allow(non_snake_case)]
 extern "C" {
     // global functions
