@@ -1,6 +1,76 @@
 #![no_std]
 
 extern crate alloc;
+// wasm builds fp.cpp standalone, so there is no C++ runtime to link.
+#[cfg(not(target_arch = "wasm32"))]
+extern crate link_cplusplus;
+
+// On wasm32-unknown-unknown there is no libc. compiler-builtins supplies
+// mem*/strlen, but malloc/free/strcmp are not provided, so route mcl's only
+// heap users (large mulVec, alloc-then-free within one call) to the Rust
+// global allocator. wasm32-wasi gets these from wasi-libc instead.
+#[cfg(all(target_arch = "wasm32", not(target_os = "wasi")))]
+mod wasm_libc {
+    use alloc::alloc::{alloc, dealloc, Layout};
+
+    const ALIGN: usize = 16;
+    const HEADER: usize = 16; // keep 16-byte payload alignment
+
+    #[no_mangle]
+    pub unsafe extern "C" fn malloc(size: usize) -> *mut u8 {
+        let total = size + HEADER;
+        let layout = Layout::from_size_align(total, ALIGN).unwrap();
+        let p = alloc(layout);
+        if p.is_null() {
+            return p;
+        }
+        *(p as *mut usize) = size;
+        p.add(HEADER)
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn free(ptr: *mut u8) {
+        if ptr.is_null() {
+            return;
+        }
+        let base = ptr.sub(HEADER);
+        let size = *(base as *const usize);
+        let layout = Layout::from_size_align(size + HEADER, ALIGN).unwrap();
+        dealloc(base, layout);
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn strcmp(a: *const u8, b: *const u8) -> i32 {
+        let mut i = 0isize;
+        loop {
+            let ca = *a.offset(i);
+            let cb = *b.offset(i);
+            if ca != cb {
+                return ca as i32 - cb as i32;
+            }
+            if ca == 0 {
+                return 0;
+            }
+            i += 1;
+        }
+    }
+}
+
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+fn fill_random(buf: &mut [u8]) {
+    getrandom::getrandom(buf).expect("getrandom failed");
+}
+
+// wasm32-unknown-unknown has no entropy source, so import one from the host
+// (the JS glue backs `env.mclRustFillRandom` with crypto.getRandomValues).
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+extern "C" {
+    fn mclRustFillRandom(buf: *mut u8, len: usize);
+}
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+fn fill_random(buf: &mut [u8]) {
+    unsafe { mclRustFillRandom(buf.as_mut_ptr(), buf.len()) }
+}
 
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -11,8 +81,6 @@ use core::ops::{Mul, MulAssign};
 use core::ops::{Sub, SubAssign};
 use core::primitive::str;
 
-#[link(name = "mcl", kind = "static")]
-#[cfg_attr(target_arch = "x86_64", link(name = "stdc++"))]
 #[allow(non_snake_case)]
 extern "C" {
     // global functions
@@ -44,7 +112,6 @@ extern "C" {
     fn mclBnFr_setLittleEndian(x: *mut Fr, buf: *const u8, bufSize: usize) -> i32;
     fn mclBnFr_setLittleEndianMod(x: *mut Fr, buf: *const u8, bufSize: usize) -> i32;
     fn mclBnFr_setHashOf(x: *mut Fr, buf: *const u8, bufSize: usize) -> i32;
-    fn mclBnFr_setByCSPRNG(x: *mut Fr);
 
     fn mclBnFr_add(z: *mut Fr, x: *const Fr, y: *const Fr);
     fn mclBnFr_sub(z: *mut Fr, x: *const Fr, y: *const Fr);
@@ -74,7 +141,6 @@ extern "C" {
     fn mclBnFp_setLittleEndian(x: *mut Fp, buf: *const u8, bufSize: usize) -> i32;
     fn mclBnFp_setLittleEndianMod(x: *mut Fp, buf: *const u8, bufSize: usize) -> i32;
     fn mclBnFp_setHashOf(x: *mut Fp, buf: *const u8, bufSize: usize) -> i32;
-    fn mclBnFp_setByCSPRNG(x: *mut Fp);
 
     fn mclBnFp_add(z: *mut Fp, x: *const Fp, y: *const Fp);
     fn mclBnFp_sub(z: *mut Fp, x: *const Fp, y: *const Fp);
@@ -292,7 +358,7 @@ macro_rules! int_impl {
 }
 
 macro_rules! base_field_impl {
-    ($t:ty,  $set_little_endian_fn:ident, $set_little_endian_mod_fn:ident, $set_hash_of_fn:ident, $set_by_csprng_fn:ident, $is_odd_fn:ident, $is_negative_fn:ident, $cmp_fn:ident, $square_root_fn:ident) => {
+    ($t:ty,  $set_little_endian_fn:ident, $set_little_endian_mod_fn:ident, $set_hash_of_fn:ident, $is_odd_fn:ident, $is_negative_fn:ident, $cmp_fn:ident, $square_root_fn:ident) => {
         impl $t {
             pub fn set_little_endian(&mut self, buf: &[u8]) -> bool {
                 unsafe { $set_little_endian_fn(self, buf.as_ptr(), buf.len()) == 0 }
@@ -304,7 +370,12 @@ macro_rules! base_field_impl {
                 unsafe { $set_hash_of_fn(self, buf.as_ptr(), buf.len()) == 0 }
             }
             pub fn set_by_csprng(&mut self) {
-                unsafe { $set_by_csprng_fn(self) }
+                let u = MaybeUninit::<[u8; core::mem::size_of::<$t>()]>::uninit();
+                let mut buf = unsafe { u.assume_init() };
+                fill_random(&mut buf);
+                if !self.set_little_endian_mod(&buf) {
+                    panic!("set_by_csprng");
+                }
             }
             pub fn is_odd(&self) -> bool {
                 unsafe { $is_odd_fn(self) == 1 }
@@ -468,7 +539,6 @@ base_field_impl![
     mclBnFp_setLittleEndian,
     mclBnFp_setLittleEndianMod,
     mclBnFp_setHashOf,
-    mclBnFp_setByCSPRNG,
     mclBnFp_isOdd,
     mclBnFp_isNegative,
     mclBnFp_cmp,
@@ -522,7 +592,6 @@ base_field_impl![
     mclBnFr_setLittleEndian,
     mclBnFr_setLittleEndianMod,
     mclBnFr_setHashOf,
-    mclBnFr_setByCSPRNG,
     mclBnFr_isOdd,
     mclBnFr_isNegative,
     mclBnFr_cmp,

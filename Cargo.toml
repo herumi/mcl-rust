@@ -1,16 +1,23 @@
 [package]
 name = "mcl_rust"
-version = "1.0.4"
+version = "1.1.0"
 authors = ["MITSUNARI Shigeo <herumi@nifty.com>"]
 description = "a wrapper class/function of a pairing library; https://github.com/herumi/mcl"
 license = "BSD-3-Clause OR MIT OR Apache-2.0"
 edition = "2018"
-build = "build.rs"
-documentation = "https://docs.rs/mcl_rust"
+repository = "https://github.com/herumi/mcl-rust"
+homepage = "https://github.com/herumi/mcl"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# On wasm there is no C++ runtime to link; fp.cpp is built standalone.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+link-cplusplus = "1"
 
-[dependencies]
+# native and wasm32-wasip1 get CSPRNG bytes from the OS / WASI random_get.
+# wasm32-unknown-unknown has no entropy source, so it is excluded here and
+# imports a host function instead (see src/lib.rs); getrandom would also fail to
+# compile there without the js feature.
+[target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dependencies]
+getrandom = "0.2"
 
 [build-dependencies]
 cmake = "0.1"
