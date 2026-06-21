@@ -14,7 +14,6 @@ cargo test
 
 # WebAssembly
 
-There are three usage environments but only two Rust build targets.
 A browser and Node.js share the same `wasm32-unknown-unknown` artifact; only the
 surrounding JS glue differs. WASI is the separate one.
 
@@ -69,8 +68,31 @@ instead of stdout). For WASI you may also use a standalone runtime if installed,
 e.g. `wasmtime run target/wasm32-wasip1/debug/examples/wasm_smoke.wasm`
 (install: `curl https://wasmtime.dev/install.sh -sSf | bash`).
 
-Note: `set_by_csprng` is not available on wasm; supply randomness on the Rust
-side (e.g. via `set_little_endian_mod`).
+## Randomness on wasm
+
+`set_by_csprng` fills a buffer with cryptographically secure random bytes and
+reduces it mod the field order. The random bytes come from:
+
+- native and `wasm32-wasip1`: the [`getrandom`](https://crates.io/crates/getrandom)
+  crate (OS CSPRNG / WASI `random_get`), with no extra wiring.
+- `wasm32-unknown-unknown`: there is no entropy source inside the module, so it
+  imports a host function `env.mclRustFillRandom(ptr, len)` and the JS glue backs
+  it with `crypto.getRandomValues`.
+
+Minimal JS wiring for `wasm32-unknown-unknown`:
+
+```js
+let instance;
+const imports = {
+  env: {
+    mclRustFillRandom(ptr, len) {
+      const mem = new Uint8Array(instance.exports.memory.buffer, ptr, len);
+      crypto.getRandomValues(mem); // Node: import { webcrypto as crypto } from 'node:crypto'
+    },
+  },
+};
+instance = await WebAssembly.instantiate(module, imports);
+```
 
 # License
 

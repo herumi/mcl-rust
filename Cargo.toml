@@ -12,5 +12,12 @@ homepage = "https://github.com/herumi/mcl"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 link-cplusplus = "1"
 
+# native and wasm32-wasip1 get CSPRNG bytes from the OS / WASI random_get.
+# wasm32-unknown-unknown has no entropy source, so it is excluded here and
+# imports a host function instead (see src/lib.rs); getrandom would also fail to
+# compile there without the js feature.
+[target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dependencies]
+getrandom = "0.2"
+
 [build-dependencies]
 cmake = "0.1"

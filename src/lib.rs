@@ -56,6 +56,22 @@ mod wasm_libc {
     }
 }
 
+#[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
+fn fill_random(buf: &mut [u8]) {
+    getrandom::getrandom(buf).expect("getrandom failed");
+}
+
+// wasm32-unknown-unknown has no entropy source, so import one from the host
+// (the JS glue backs `env.mclRustFillRandom` with crypto.getRandomValues).
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+extern "C" {
+    fn mclRustFillRandom(buf: *mut u8, len: usize);
+}
+#[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
+fn fill_random(buf: &mut [u8]) {
+    unsafe { mclRustFillRandom(buf.as_mut_ptr(), buf.len()) }
+}
+
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::mem::MaybeUninit;
@@ -96,9 +112,6 @@ extern "C" {
     fn mclBnFr_setLittleEndian(x: *mut Fr, buf: *const u8, bufSize: usize) -> i32;
     fn mclBnFr_setLittleEndianMod(x: *mut Fr, buf: *const u8, bufSize: usize) -> i32;
     fn mclBnFr_setHashOf(x: *mut Fr, buf: *const u8, bufSize: usize) -> i32;
-    // MCL_DONT_USE_CSPRNG (set via MCL_STANDALONE) drops this symbol on wasm.
-    #[cfg(not(target_arch = "wasm32"))]
-    fn mclBnFr_setByCSPRNG(x: *mut Fr);
 
     fn mclBnFr_add(z: *mut Fr, x: *const Fr, y: *const Fr);
     fn mclBnFr_sub(z: *mut Fr, x: *const Fr, y: *const Fr);
@@ -128,8 +141,6 @@ extern "C" {
     fn mclBnFp_setLittleEndian(x: *mut Fp, buf: *const u8, bufSize: usize) -> i32;
     fn mclBnFp_setLittleEndianMod(x: *mut Fp, buf: *const u8, bufSize: usize) -> i32;
     fn mclBnFp_setHashOf(x: *mut Fp, buf: *const u8, bufSize: usize) -> i32;
-    #[cfg(not(target_arch = "wasm32"))]
-    fn mclBnFp_setByCSPRNG(x: *mut Fp);
 
     fn mclBnFp_add(z: *mut Fp, x: *const Fp, y: *const Fp);
     fn mclBnFp_sub(z: *mut Fp, x: *const Fp, y: *const Fp);
@@ -347,7 +358,7 @@ macro_rules! int_impl {
 }
 
 macro_rules! base_field_impl {
-    ($t:ty,  $set_little_endian_fn:ident, $set_little_endian_mod_fn:ident, $set_hash_of_fn:ident, $set_by_csprng_fn:ident, $is_odd_fn:ident, $is_negative_fn:ident, $cmp_fn:ident, $square_root_fn:ident) => {
+    ($t:ty,  $set_little_endian_fn:ident, $set_little_endian_mod_fn:ident, $set_hash_of_fn:ident, $is_odd_fn:ident, $is_negative_fn:ident, $cmp_fn:ident, $square_root_fn:ident) => {
         impl $t {
             pub fn set_little_endian(&mut self, buf: &[u8]) -> bool {
                 unsafe { $set_little_endian_fn(self, buf.as_ptr(), buf.len()) == 0 }
@@ -358,9 +369,13 @@ macro_rules! base_field_impl {
             pub fn set_hash_of(&mut self, buf: &[u8]) -> bool {
                 unsafe { $set_hash_of_fn(self, buf.as_ptr(), buf.len()) == 0 }
             }
-            #[cfg(not(target_arch = "wasm32"))]
             pub fn set_by_csprng(&mut self) {
-                unsafe { $set_by_csprng_fn(self) }
+                let u = MaybeUninit::<[u8; core::mem::size_of::<$t>()]>::uninit();
+                let mut buf = unsafe { u.assume_init() };
+                fill_random(&mut buf);
+                if !self.set_little_endian_mod(&buf) {
+                    panic!("set_by_csprng");
+                }
             }
             pub fn is_odd(&self) -> bool {
                 unsafe { $is_odd_fn(self) == 1 }
@@ -524,7 +539,6 @@ base_field_impl![
     mclBnFp_setLittleEndian,
     mclBnFp_setLittleEndianMod,
     mclBnFp_setHashOf,
-    mclBnFp_setByCSPRNG,
     mclBnFp_isOdd,
     mclBnFp_isNegative,
     mclBnFp_cmp,
@@ -578,7 +592,6 @@ base_field_impl![
     mclBnFr_setLittleEndian,
     mclBnFr_setLittleEndianMod,
     mclBnFr_setHashOf,
-    mclBnFr_setByCSPRNG,
     mclBnFr_isOdd,
     mclBnFr_isNegative,
     mclBnFr_cmp,
