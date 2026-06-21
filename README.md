@@ -25,13 +25,13 @@ surrounding JS glue differs. WASI is the separate one.
 | WASI (wasmtime / `node:wasi` / ...) | WASI runtime (`_start`) | `wasm32-wasip1` |
 
 Building requires `clang++` and `llvm-ar` (the wasm build of mcl compiles
-`mcl/src/fp.cpp` directly). Running the test below needs only **Node.js**.
+`mcl/src/fp.cpp` directly). Running the test below needs only Node.js.
 
 To pick a specific LLVM toolchain, set `CLANG_VER` as a suffix (same convention
 as `mcl/Makefile.wasm`), e.g. `CLANG_VER=-18` uses `clang++-18` / `llvm-ar-18`:
 
 ```
-CLANG_VER=-18 make wasm-test
+env CLANG_VER=-18 make wasm-test
 ```
 
 `CXX` / `AR` override the compiler / archiver outright if set.
