@@ -8,7 +8,8 @@ edition = "2018"
 repository = "https://github.com/herumi/mcl-rust"
 homepage = "https://github.com/herumi/mcl"
 
-[dependencies]
+# On wasm there is no C++ runtime to link; fp.cpp is built standalone.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 link-cplusplus = "1"
 
 [build-dependencies]

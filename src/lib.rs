@@ -1,7 +1,60 @@
 #![no_std]
 
 extern crate alloc;
+// wasm builds fp.cpp standalone, so there is no C++ runtime to link.
+#[cfg(not(target_arch = "wasm32"))]
 extern crate link_cplusplus;
+
+// On wasm32-unknown-unknown there is no libc. compiler-builtins supplies
+// mem*/strlen, but malloc/free/strcmp are not provided, so route mcl's only
+// heap users (large mulVec, alloc-then-free within one call) to the Rust
+// global allocator. wasm32-wasi gets these from wasi-libc instead.
+#[cfg(all(target_arch = "wasm32", not(target_os = "wasi")))]
+mod wasm_libc {
+    use alloc::alloc::{alloc, dealloc, Layout};
+
+    const ALIGN: usize = 16;
+    const HEADER: usize = 16; // keep 16-byte payload alignment
+
+    #[no_mangle]
+    pub unsafe extern "C" fn malloc(size: usize) -> *mut u8 {
+        let total = size + HEADER;
+        let layout = Layout::from_size_align(total, ALIGN).unwrap();
+        let p = alloc(layout);
+        if p.is_null() {
+            return p;
+        }
+        *(p as *mut usize) = size;
+        p.add(HEADER)
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn free(ptr: *mut u8) {
+        if ptr.is_null() {
+            return;
+        }
+        let base = ptr.sub(HEADER);
+        let size = *(base as *const usize);
+        let layout = Layout::from_size_align(size + HEADER, ALIGN).unwrap();
+        dealloc(base, layout);
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn strcmp(a: *const u8, b: *const u8) -> i32 {
+        let mut i = 0isize;
+        loop {
+            let ca = *a.offset(i);
+            let cb = *b.offset(i);
+            if ca != cb {
+                return ca as i32 - cb as i32;
+            }
+            if ca == 0 {
+                return 0;
+            }
+            i += 1;
+        }
+    }
+}
 
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -43,6 +96,8 @@ extern "C" {
     fn mclBnFr_setLittleEndian(x: *mut Fr, buf: *const u8, bufSize: usize) -> i32;
     fn mclBnFr_setLittleEndianMod(x: *mut Fr, buf: *const u8, bufSize: usize) -> i32;
     fn mclBnFr_setHashOf(x: *mut Fr, buf: *const u8, bufSize: usize) -> i32;
+    // MCL_DONT_USE_CSPRNG (set via MCL_STANDALONE) drops this symbol on wasm.
+    #[cfg(not(target_arch = "wasm32"))]
     fn mclBnFr_setByCSPRNG(x: *mut Fr);
 
     fn mclBnFr_add(z: *mut Fr, x: *const Fr, y: *const Fr);
@@ -73,6 +128,7 @@ extern "C" {
     fn mclBnFp_setLittleEndian(x: *mut Fp, buf: *const u8, bufSize: usize) -> i32;
     fn mclBnFp_setLittleEndianMod(x: *mut Fp, buf: *const u8, bufSize: usize) -> i32;
     fn mclBnFp_setHashOf(x: *mut Fp, buf: *const u8, bufSize: usize) -> i32;
+    #[cfg(not(target_arch = "wasm32"))]
     fn mclBnFp_setByCSPRNG(x: *mut Fp);
 
     fn mclBnFp_add(z: *mut Fp, x: *const Fp, y: *const Fp);
@@ -302,6 +358,7 @@ macro_rules! base_field_impl {
             pub fn set_hash_of(&mut self, buf: &[u8]) -> bool {
                 unsafe { $set_hash_of_fn(self, buf.as_ptr(), buf.len()) == 0 }
             }
+            #[cfg(not(target_arch = "wasm32"))]
             pub fn set_by_csprng(&mut self) {
                 unsafe { $set_by_csprng_fn(self) }
             }
