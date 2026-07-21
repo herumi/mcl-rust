@@ -11,7 +11,8 @@ fn main() {
     let mut config = cmake::Config::new("mcl");
     config
         .define("MCL_STATIC_LIB", "ON")
-        .define("MCL_STANDALONE", "ON");
+        .define("MCL_STANDALONE", "ON")
+        .define("MCL_TEST_WITH_GMP", "OFF");
 
     // On non-x86_64 targets mcl compiles LLVM IR (*.ll) directly with clang++,
     // so it must be specified explicitly; otherwise CMake aborts with
