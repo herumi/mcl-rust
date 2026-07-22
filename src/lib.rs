@@ -74,7 +74,6 @@ fn fill_random(buf: &mut [u8]) {
 
 use alloc::string::String;
 use alloc::vec::Vec;
-use core::mem::MaybeUninit;
 use core::ops::{Add, AddAssign};
 use core::ops::{Div, DivAssign};
 use core::ops::{Mul, MulAssign};
@@ -260,9 +259,7 @@ macro_rules! common_impl {
                 Default::default()
             }
             pub unsafe fn uninit() -> $t {
-                let u = MaybeUninit::<$t>::uninit();
-                let v = unsafe { u.assume_init() };
-                v
+                Default::default()
             }
             pub fn clear(&mut self) {
                 *self = <$t>::zero()
@@ -322,8 +319,7 @@ macro_rules! str_impl {
                 unsafe { $set_str_fn(self, s.as_ptr(), s.len(), base) == 0 }
             }
             pub fn get_str(&self, io_mode: i32) -> String {
-                let u = MaybeUninit::<[u8; $maxBufSize]>::uninit();
-                let mut buf = unsafe { u.assume_init() };
+                let mut buf = [0u8; $maxBufSize];
                 let n: usize;
                 unsafe {
                     n = $get_str_fn(buf.as_mut_ptr(), buf.len(), self, io_mode);
@@ -370,8 +366,7 @@ macro_rules! base_field_impl {
                 unsafe { $set_hash_of_fn(self, buf.as_ptr(), buf.len()) == 0 }
             }
             pub fn set_by_csprng(&mut self) {
-                let u = MaybeUninit::<[u8; core::mem::size_of::<$t>()]>::uninit();
-                let mut buf = unsafe { u.assume_init() };
+                let mut buf = [0u8; core::mem::size_of::<$t>()];
                 fill_random(&mut buf);
                 if !self.set_little_endian_mod(&buf) {
                     panic!("set_by_csprng");
@@ -704,8 +699,7 @@ pub fn get_gt_serialized_size() -> u32 {
 
 macro_rules! get_str_impl {
     ($get_str_fn:ident) => {{
-        let u = MaybeUninit::<[u8; 256]>::uninit();
-        let mut buf = unsafe { u.assume_init() };
+        let mut buf = [0u8; 256];
         let n: usize;
         unsafe {
             n = $get_str_fn(buf.as_mut_ptr(), buf.len());
