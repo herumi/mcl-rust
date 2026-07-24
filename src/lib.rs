@@ -259,6 +259,10 @@ macro_rules! common_impl {
             pub fn zero() -> $t {
                 Default::default()
             }
+            /// This function used to return an uninitialized value, which was
+            /// undefined behavior. It now returns a zero-initialized value,
+            /// so it is equivalent to `zero()`. Use `zero()` instead.
+            #[deprecated(since = "1.2.0", note = "use `zero()` instead")]
             pub unsafe fn uninit() -> $t {
                 Default::default()
             }
@@ -313,7 +317,7 @@ macro_rules! str_impl {
     ($t:ty, $maxBufSize:expr, $get_str_fn:ident, $set_str_fn:ident) => {
         impl $t {
             pub fn from_str(s: &str, base: i32) -> Option<$t> {
-                let mut v = unsafe { <$t>::uninit() };
+                let mut v = <$t>::zero();
                 if v.set_str(s, base) {
                     return Some(v);
                 }
@@ -346,7 +350,7 @@ macro_rules! int_impl {
     ($t:ty, $set_int_fn:ident, $is_one_fn:ident) => {
         impl $t {
             pub fn from_int(x: i32) -> $t {
-                let mut v = unsafe { <$t>::uninit() };
+                let mut v = <$t>::zero();
                 v.set_int(x);
                 v
             }
@@ -413,7 +417,7 @@ macro_rules! add_op_impl {
         impl<'a> Add for &'a $t {
             type Output = $t;
             fn add(self, other: &$t) -> $t {
-                let mut v = unsafe { <$t>::uninit() };
+                let mut v = <$t>::zero();
                 <$t>::add(&mut v, &self, &other);
                 v
             }
@@ -429,7 +433,7 @@ macro_rules! add_op_impl {
         impl<'a> Sub for &'a $t {
             type Output = $t;
             fn sub(self, other: &$t) -> $t {
-                let mut v = unsafe { <$t>::uninit() };
+                let mut v = <$t>::zero();
                 <$t>::sub(&mut v, &self, &other);
                 v
             }
@@ -464,7 +468,7 @@ macro_rules! field_mul_op_impl {
         impl<'a> Mul for &'a $t {
             type Output = $t;
             fn mul(self, other: &$t) -> $t {
-                let mut v = unsafe { <$t>::uninit() };
+                let mut v = <$t>::zero();
                 <$t>::mul(&mut v, &self, &other);
                 v
             }
@@ -480,7 +484,7 @@ macro_rules! field_mul_op_impl {
         impl<'a> Div for &'a $t {
             type Output = $t;
             fn div(self, other: &$t) -> $t {
-                let mut v = unsafe { <$t>::uninit() };
+                let mut v = <$t>::zero();
                 <$t>::div(&mut v, &self, &other);
                 v
             }
