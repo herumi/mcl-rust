@@ -74,6 +74,7 @@ fn fill_random(buf: &mut [u8]) {
 
 use alloc::string::String;
 use alloc::vec::Vec;
+use core::mem::MaybeUninit;
 use core::ops::{Add, AddAssign};
 use core::ops::{Div, DivAssign};
 use core::ops::{Mul, MulAssign};
@@ -296,6 +297,9 @@ macro_rules! serialize_impl {
                 if n == 0 {
                     panic!("serialize");
                 }
+                if n > size {
+                    panic!("serialize returned an invalid length");
+                }
                 unsafe {
                     buf.set_len(n);
                 }
@@ -319,15 +323,20 @@ macro_rules! str_impl {
                 unsafe { $set_str_fn(self, s.as_ptr(), s.len(), base) == 0 }
             }
             pub fn get_str(&self, io_mode: i32) -> String {
-                let mut buf = [0u8; $maxBufSize];
-                let n: usize;
-                unsafe {
-                    n = $get_str_fn(buf.as_mut_ptr(), buf.len(), self, io_mode);
-                }
+                let mut buf = MaybeUninit::<[u8; $maxBufSize]>::uninit();
+                let n = unsafe {
+                    $get_str_fn(buf.as_mut_ptr().cast::<u8>(), $maxBufSize, self, io_mode)
+                };
                 if n == 0 {
                     panic!("mclBnFr_getStr");
                 }
-                unsafe { core::str::from_utf8_unchecked(&buf[0..n]).into() }
+                if n > $maxBufSize {
+                    panic!("mclBnFr_getStr returned an invalid length");
+                }
+                let bytes = unsafe { core::slice::from_raw_parts(buf.as_ptr().cast::<u8>(), n) };
+                core::str::from_utf8(bytes)
+                    .expect("getStr returned invalid UTF-8")
+                    .into()
             }
         }
     };
@@ -699,15 +708,19 @@ pub fn get_gt_serialized_size() -> u32 {
 
 macro_rules! get_str_impl {
     ($get_str_fn:ident) => {{
-        let mut buf = [0u8; 256];
-        let n: usize;
-        unsafe {
-            n = $get_str_fn(buf.as_mut_ptr(), buf.len());
-        }
+        const BUF_SIZE: usize = 256;
+        let mut buf = MaybeUninit::<[u8; BUF_SIZE]>::uninit();
+        let n = unsafe { $get_str_fn(buf.as_mut_ptr().cast::<u8>(), BUF_SIZE) };
         if n == 0 {
             panic!("get_str");
         }
-        unsafe { core::str::from_utf8_unchecked(&buf[0..n]).into() }
+        if n > BUF_SIZE {
+            panic!("get_str returned an invalid length");
+        }
+        let bytes = unsafe { core::slice::from_raw_parts(buf.as_ptr().cast::<u8>(), n) };
+        core::str::from_utf8(bytes)
+            .expect("get_str returned invalid UTF-8")
+            .into()
     }};
 }
 
