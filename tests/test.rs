@@ -35,8 +35,8 @@ macro_rules! field_test {
         assert_eq!(x.cmp(&y), -1);
         assert_eq!(y.cmp(&x), 1);
 
-        let mut z = unsafe { <$t>::uninit() };
-        let mut w = unsafe { <$t>::uninit() };
+        let mut z = <$t>::zero();
+        let mut w = <$t>::zero();
 
         let a = 256;
         let b = 8;
@@ -96,13 +96,13 @@ macro_rules! ec_test {
         assert!(P1.is_zero());
         assert_ne!(P1, $P);
         <$t>::neg(&mut P1, &$P);
-        let mut x: $f = unsafe { <$f>::uninit() };
+        let mut x: $f = <$f>::zero();
         <$f>::neg(&mut x, &P1.y);
         assert_eq!(&x, &$P.y);
 
         <$t>::dbl(&mut P1, &$P);
-        let mut P2: $t = unsafe { <$t>::uninit() };
-        let mut P3: $t = unsafe { <$t>::uninit() };
+        let mut P2: $t = <$t>::zero();
+        let mut P3: $t = <$t>::zero();
         <$t>::add(&mut P2, &$P, &$P);
         assert_eq!(P2, P1);
         <$t>::add(&mut P3, &P2, &$P);
@@ -137,12 +137,12 @@ macro_rules! ec_test {
             for i in 0..n {
                 ys[i].set_by_csprng();
                 <$t>::mul(&mut xs[i], &$P, &ys[i]);
-                let mut yy = unsafe { Fr::uninit() };
+                let mut yy = Fr::zero();
                 <Fr>::sqr(&mut yy, &ys[i]);
                 y += &yy;
             }
-            let mut g1 = unsafe { <$t>::uninit() };
-            let mut g2 = unsafe { <$t>::uninit() };
+            let mut g1 = <$t>::zero();
+            let mut g2 = <$t>::zero();
             <$t>::mul_vec(&mut g1, &xs, &ys);
             <$t>::mul(&mut g2, &$P, &y);
             assert_eq!(g1.get_str(16), g2.get_str(16));
@@ -153,7 +153,7 @@ macro_rules! ec_test {
 macro_rules! serialize_test {
     ($t:ty, $x:expr) => {
         let buf = $x.serialize();
-        let mut y: $t = unsafe { <$t>::uninit() };
+        let mut y: $t = <$t>::zero();
         assert!(y.deserialize(&buf));
         assert_eq!($x, y);
     };
@@ -163,7 +163,7 @@ macro_rules! str_test {
     ($t:ty, $x:expr) => {
         for base in [10, 16] {
             let s = $x.get_str(base);
-            let mut y: $t = unsafe { <$t>::uninit() };
+            let mut y: $t = <$t>::zero();
             assert!(y.set_str(&s, base));
             assert_eq!($x, y);
         }
@@ -238,7 +238,7 @@ fn testCurve(curve: CurveType) {
 
     let x = Fr::from_int(3);
     let y = Fp::from_int(-1);
-    let mut e = unsafe { GT::uninit() };
+    let mut e = GT::zero();
     pairing(&mut e, &P, &Q);
     serialize_test! {Fr, x};
     serialize_test! {Fp, y};

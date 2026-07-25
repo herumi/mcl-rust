@@ -15,25 +15,25 @@ fn main() {
     assert_eq!(c.get_str(10), "8");
 
     // points via hash-and-map
-    let mut p = unsafe { G1::uninit() };
+    let mut p = G1::zero();
     assert!(p.set_hash_of("abc".as_bytes()));
-    let mut q = unsafe { G2::uninit() };
+    let mut q = G2::zero();
     assert!(q.set_hash_of("abc".as_bytes()));
 
     // e(a P, b Q) == e(P, Q)^(a b)
-    let mut ap = unsafe { G1::uninit() };
-    let mut bq = unsafe { G2::uninit() };
+    let mut ap = G1::zero();
+    let mut bq = G2::zero();
     G1::mul(&mut ap, &p, &a);
     G2::mul(&mut bq, &q, &b);
 
-    let mut e1 = unsafe { GT::uninit() };
+    let mut e1 = GT::zero();
     pairing(&mut e1, &ap, &bq);
 
-    let mut e2 = unsafe { GT::uninit() };
+    let mut e2 = GT::zero();
     pairing(&mut e2, &p, &q);
     let mut ab = Fr::zero();
     Fr::mul(&mut ab, &a, &b);
-    let mut e2pow = unsafe { GT::uninit() };
+    let mut e2pow = GT::zero();
     GT::pow(&mut e2pow, &e2, &ab);
     assert!(e1 == e2pow, "pairing bilinearity failed");
 
@@ -47,12 +47,12 @@ fn main() {
         y.set_int(i as i32 + 1);
         ys.push(y);
     }
-    let mut g = unsafe { G1::uninit() };
+    let mut g = G1::zero();
     G1::mul_vec(&mut g, &xs, &ys);
     // sum_{i=1}^{n} i = n(n+1)/2
     let mut s = Fr::zero();
     s.set_int(n as i32 * (n as i32 + 1) / 2);
-    let mut g2 = unsafe { G1::uninit() };
+    let mut g2 = G1::zero();
     G1::mul(&mut g2, &p, &s);
     assert!(g == g2, "mul_vec mismatch");
 

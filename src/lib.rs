@@ -259,10 +259,12 @@ macro_rules! common_impl {
             pub fn zero() -> $t {
                 Default::default()
             }
+            /// This function used to return an uninitialized value, which was
+            /// undefined behavior. It now returns a zero-initialized value,
+            /// so it is equivalent to `zero()`. Use `zero()` instead.
+            #[deprecated(since = "1.2.0", note = "use `zero()` instead")]
             pub unsafe fn uninit() -> $t {
-                let u = MaybeUninit::<$t>::uninit();
-                let v = unsafe { u.assume_init() };
-                v
+                Default::default()
             }
             pub fn clear(&mut self) {
                 *self = <$t>::zero()
@@ -299,6 +301,9 @@ macro_rules! serialize_impl {
                 if n == 0 {
                     panic!("serialize");
                 }
+                if n > size {
+                    panic!("serialize returned an invalid length");
+                }
                 unsafe {
                     buf.set_len(n);
                 }
@@ -312,7 +317,7 @@ macro_rules! str_impl {
     ($t:ty, $maxBufSize:expr, $get_str_fn:ident, $set_str_fn:ident) => {
         impl $t {
             pub fn from_str(s: &str, base: i32) -> Option<$t> {
-                let mut v = unsafe { <$t>::uninit() };
+                let mut v = <$t>::zero();
                 if v.set_str(s, base) {
                     return Some(v);
                 }
@@ -322,16 +327,20 @@ macro_rules! str_impl {
                 unsafe { $set_str_fn(self, s.as_ptr(), s.len(), base) == 0 }
             }
             pub fn get_str(&self, io_mode: i32) -> String {
-                let u = MaybeUninit::<[u8; $maxBufSize]>::uninit();
-                let mut buf = unsafe { u.assume_init() };
-                let n: usize;
-                unsafe {
-                    n = $get_str_fn(buf.as_mut_ptr(), buf.len(), self, io_mode);
-                }
+                let mut buf = MaybeUninit::<[u8; $maxBufSize]>::uninit();
+                let n = unsafe {
+                    $get_str_fn(buf.as_mut_ptr().cast::<u8>(), $maxBufSize, self, io_mode)
+                };
                 if n == 0 {
                     panic!("mclBnFr_getStr");
                 }
-                unsafe { core::str::from_utf8_unchecked(&buf[0..n]).into() }
+                if n > $maxBufSize {
+                    panic!("mclBnFr_getStr returned an invalid length");
+                }
+                let bytes = unsafe { core::slice::from_raw_parts(buf.as_ptr().cast::<u8>(), n) };
+                core::str::from_utf8(bytes)
+                    .expect("getStr returned invalid UTF-8")
+                    .into()
             }
         }
     };
@@ -341,7 +350,7 @@ macro_rules! int_impl {
     ($t:ty, $set_int_fn:ident, $is_one_fn:ident) => {
         impl $t {
             pub fn from_int(x: i32) -> $t {
-                let mut v = unsafe { <$t>::uninit() };
+                let mut v = <$t>::zero();
                 v.set_int(x);
                 v
             }
@@ -370,8 +379,7 @@ macro_rules! base_field_impl {
                 unsafe { $set_hash_of_fn(self, buf.as_ptr(), buf.len()) == 0 }
             }
             pub fn set_by_csprng(&mut self) {
-                let u = MaybeUninit::<[u8; core::mem::size_of::<$t>()]>::uninit();
-                let mut buf = unsafe { u.assume_init() };
+                let mut buf = [0u8; core::mem::size_of::<$t>()];
                 fill_random(&mut buf);
                 if !self.set_little_endian_mod(&buf) {
                     panic!("set_by_csprng");
@@ -409,7 +417,7 @@ macro_rules! add_op_impl {
         impl<'a> Add for &'a $t {
             type Output = $t;
             fn add(self, other: &$t) -> $t {
-                let mut v = unsafe { <$t>::uninit() };
+                let mut v = <$t>::zero();
                 <$t>::add(&mut v, &self, &other);
                 v
             }
@@ -425,7 +433,7 @@ macro_rules! add_op_impl {
         impl<'a> Sub for &'a $t {
             type Output = $t;
             fn sub(self, other: &$t) -> $t {
-                let mut v = unsafe { <$t>::uninit() };
+                let mut v = <$t>::zero();
                 <$t>::sub(&mut v, &self, &other);
                 v
             }
@@ -460,7 +468,7 @@ macro_rules! field_mul_op_impl {
         impl<'a> Mul for &'a $t {
             type Output = $t;
             fn mul(self, other: &$t) -> $t {
-                let mut v = unsafe { <$t>::uninit() };
+                let mut v = <$t>::zero();
                 <$t>::mul(&mut v, &self, &other);
                 v
             }
@@ -476,7 +484,7 @@ macro_rules! field_mul_op_impl {
         impl<'a> Div for &'a $t {
             type Output = $t;
             fn div(self, other: &$t) -> $t {
-                let mut v = unsafe { <$t>::uninit() };
+                let mut v = <$t>::zero();
                 <$t>::div(&mut v, &self, &other);
                 v
             }
@@ -704,16 +712,19 @@ pub fn get_gt_serialized_size() -> u32 {
 
 macro_rules! get_str_impl {
     ($get_str_fn:ident) => {{
-        let u = MaybeUninit::<[u8; 256]>::uninit();
-        let mut buf = unsafe { u.assume_init() };
-        let n: usize;
-        unsafe {
-            n = $get_str_fn(buf.as_mut_ptr(), buf.len());
-        }
+        const BUF_SIZE: usize = 256;
+        let mut buf = MaybeUninit::<[u8; BUF_SIZE]>::uninit();
+        let n = unsafe { $get_str_fn(buf.as_mut_ptr().cast::<u8>(), BUF_SIZE) };
         if n == 0 {
             panic!("get_str");
         }
-        unsafe { core::str::from_utf8_unchecked(&buf[0..n]).into() }
+        if n > BUF_SIZE {
+            panic!("get_str returned an invalid length");
+        }
+        let bytes = unsafe { core::slice::from_raw_parts(buf.as_ptr().cast::<u8>(), n) };
+        core::str::from_utf8(bytes)
+            .expect("get_str returned invalid UTF-8")
+            .into()
     }};
 }
 

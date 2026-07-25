@@ -65,15 +65,22 @@ fn build_wasm() {
             "-Wall",
             "-Wextra",
         ])
-        .arg("-I").arg(mcl.join("src/wasm"))
-        .arg("-I").arg(mcl.join("include"))
-        .arg("-I").arg(mcl.join("src"))
+        .arg("-I")
+        .arg(mcl.join("src/wasm"))
+        .arg("-I")
+        .arg(mcl.join("include"))
+        .arg("-I")
+        .arg(mcl.join("src"))
         .arg("-c")
-        .arg("-o").arg(&obj)
+        .arg("-o")
+        .arg(&obj)
         .arg(&fp_cpp)
         .status()
         .expect("failed to run clang++ for wasm");
-    assert!(status.success(), "clang++ failed to compile fp.cpp for wasm");
+    assert!(
+        status.success(),
+        "clang++ failed to compile fp.cpp for wasm"
+    );
 
     let _ = std::fs::remove_file(&lib);
     let status = Command::new(&llvm_ar)

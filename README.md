@@ -3,6 +3,10 @@
 This is a wrapper library of [mcl](https://github.com/herumi/mcl/),
 which is a portable and fast pairing-based cryptography library.
 
+# News
+
+- v1.2.0 `T::uninit()` is deprecated. Use `T::zero()` instead.
+
 # Test
 
 ```
