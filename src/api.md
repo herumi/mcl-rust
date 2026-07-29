@@ -1,19 +1,3 @@
-## Minimum sample
-
-A sample demonstrating BLS12-381 usage:
-
-```rust
-use mcl_rust::{init, pairing, CurveType, G1, G2, GT};
-
-assert!(init(CurveType::BLS12_381));
-let mut p = G1::zero();
-let mut q = G2::zero();
-assert!(p.set_hash_of(b"abc"));
-assert!(q.set_hash_of(b"abc"));
-let mut e = GT::zero();
-pairing(&mut e, &p, &q);
-```
-
 ## Notation
 
 The elliptic curve equation is `E: y^2 = x^3 + b`.

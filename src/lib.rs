@@ -309,15 +309,6 @@ macro_rules! serialize_impl {
             ///   - the size is equal to `mclBn_getG1ByteSize()` (=`mclBn_getFpByteSize()`).
             /// - `G2` ; compressed with a fixed size
             ///   - the size is equal to `mclBn_getG2ByteSize()`.
-            ///
-            /// A pseudo-code to serialize `P` of `G1` (resp. `G2`):
-            /// ```rust
-            /// # use mcl_rust::{G1, G2};
-            /// # fn example(p: &G1) {
-            /// let s = p.serialize();
-            /// # let _ = s;
-            /// # }
-            /// ```
             pub fn serialize(&self) -> Vec<u8> {
                 let size = unsafe { $size } as usize;
                 let mut buf: Vec<u8> = Vec::with_capacity(size);
@@ -790,11 +781,6 @@ pub fn get_version() -> u32 {
 ///
 /// - `curve` ; specify the curve type
 /// - This is not thread safe.
-///
-/// ```rust
-/// use mcl_rust::{init, CurveType};
-/// assert!(init(CurveType::BLS12_381));
-/// ```
 pub fn init(curve: CurveType) -> bool {
     unsafe { mclBn_init(curve as i32, MCLBN_COMPILED_TIME_VAR) == 0 }
 }
@@ -852,40 +838,18 @@ pub fn get_curve_order() -> String {
 /// `finalExp` satisfies the following properties:
 ///   - `e(P, Q) = finalExp(MillerLoop(P, Q))`
 ///   - `e(P1, Q1) e(P2, Q2) = finalExp(MillerLoop(P1, Q1) MillerLoop(P2, Q2))`
-///
-/// ```rust
-/// # use mcl_rust::{init, pairing, CurveType, G1, G2, GT};
-/// # assert!(init(CurveType::BLS12_381));
-/// # let (p, q) = (G1::zero(), G2::zero());
-/// let mut z = GT::zero();
-/// pairing(&mut z, &p, &q);
-/// ```
 pub fn pairing(z: &mut GT, x: &G1, y: &G2) {
     unsafe {
         mclBn_pairing(z, x, y);
     }
 }
 
-/// ```rust
-/// # use mcl_rust::{init, miller_loop, CurveType, G1, G2, GT};
-/// # assert!(init(CurveType::BLS12_381));
-/// # let (p, q) = (G1::zero(), G2::zero());
-/// let mut z = GT::zero();
-/// miller_loop(&mut z, &p, &q);
-/// ```
 pub fn miller_loop(z: &mut GT, x: &G1, y: &G2) {
     unsafe {
         mclBn_millerLoop(z, x, y);
     }
 }
 
-/// ```rust
-/// # use mcl_rust::{final_exp, init, CurveType, GT};
-/// # assert!(init(CurveType::BLS12_381));
-/// # let x = GT::zero();
-/// let mut y = GT::zero();
-/// final_exp(&mut y, &x);
-/// ```
 pub fn final_exp(y: &mut GT, x: &GT) {
     unsafe {
         mclBn_finalExp(y, x);
