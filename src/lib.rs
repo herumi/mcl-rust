@@ -1,3 +1,5 @@
+#![doc = include_str!("api.md")]
+#![allow(rustdoc::broken_intra_doc_links)]
 #![no_std]
 
 extern crate alloc;
@@ -266,9 +268,11 @@ macro_rules! common_impl {
             pub unsafe fn uninit() -> $t {
                 Default::default()
             }
+            /// Set `x` to zero.
             pub fn clear(&mut self) {
                 *self = <$t>::zero()
             }
+            /// - return 1 (true) if true else 0 (false)
             pub fn is_zero(&self) -> bool {
                 unsafe { $is_zero_fn(self) == 1 }
             }
@@ -278,6 +282,7 @@ macro_rules! common_impl {
 macro_rules! is_valid_impl {
     ($t:ty, $is_valid_fn:ident) => {
         impl $t {
+            /// - return 1 if true else 0
             pub fn is_valid(&self) -> bool {
                 unsafe { $is_valid_fn(self) == 1 }
             }
@@ -288,9 +293,31 @@ macro_rules! is_valid_impl {
 macro_rules! serialize_impl {
     ($t:ty, $size:expr, $serialize_fn:ident, $deserialize_fn:ident) => {
         impl $t {
+            /// - deserialize `x` from `buf[0..bufSize-1]`
+            /// - return read size on success, otherwise 0
+            ///   - mclBnG1_deserialize and mclBnG2_deserialize check whether the point has the correct order of G1/G2.
             pub fn deserialize(&mut self, buf: &[u8]) -> bool {
                 unsafe { $deserialize_fn(self, buf.as_ptr(), buf.len()) > 0 }
             }
+            /// - serialize `x` into `buf[0..maxBufSize-1]`
+            /// - return written byte size on success, otherwise 0
+            ///
+            /// # Serialization Format
+            /// - `Fp` (resp. `Fr`) ; a little-endian byte sequence with a fixed size
+            ///   - the size is the return value of `mclBn_getFpByteSize()` (resp. `mclBn_getFrByteSize()`).
+            /// - `G1` ; compressed with a fixed size
+            ///   - the size is equal to `mclBn_getG1ByteSize()` (=`mclBn_getFpByteSize()`).
+            /// - `G2` ; compressed with a fixed size
+            ///   - the size is equal to `mclBn_getG2ByteSize()`.
+            ///
+            /// A pseudo-code to serialize `P` of `G1` (resp. `G2`):
+            /// ```rust
+            /// # use mcl_rust::{G1, G2};
+            /// # fn example(p: &G1) {
+            /// let s = p.serialize();
+            /// # let _ = s;
+            /// # }
+            /// ```
             pub fn serialize(&self) -> Vec<u8> {
                 let size = unsafe { $size } as usize;
                 let mut buf: Vec<u8> = Vec::with_capacity(size);
@@ -323,9 +350,30 @@ macro_rules! str_impl {
                 }
                 None
             }
+            /// - set `buf[0..bufSize-1]` to `x` accoring to `ioMode`
+            ///   - mask and truncate the value if it is greater than (r or p).
+            ///   - See [masking](api.md#set-buf0bufsize-1-to-x-with-masking-according-to-the-following-way)
+            /// - deny too large bufSize. The maximum length depends on compile options, but at least the bit length of the type of x.
+            /// - The set string of G1/G2 fails if the point is not on the elliptic curve.
+            ///   - And check whether the point has the valid order of G1/G2(default).
+            /// - return 0 if success else -1
+            ///   - mclBnG1_setStr and mclBnG2_setStr check whether the point has the correct order of G1/G2.
             pub fn set_str(&mut self, s: &str, base: i32) -> bool {
                 unsafe { $set_str_fn(self, s.as_ptr(), s.len(), base) == 0 }
             }
+            /// - write `x` to `buf` according to `ioMode`
+            /// - `ioMode`
+            ///   - 2 ; binary number
+            ///   - 10 ; decimal number
+            ///   - 16 ; hexadecimal number
+            ///   - `MCLBN_IO_EC_PROJ` ; output as Jacobi coordinate
+            /// - return `strlen(buf)` on success, otherwise 0.
+            ///
+            /// The meaning of the output of `G1`:
+            /// - `0` ; infinity
+            /// - `1 <x> <y>` ; affine coordinate
+            /// - `4 <x> <y> <z>` ; Jacobi coordinate
+            /// - the element `<x>` of `G2` outputs `d[0] d[1]`.
             pub fn get_str(&self, io_mode: i32) -> String {
                 let mut buf = MaybeUninit::<[u8; $maxBufSize]>::uninit();
                 let n = unsafe {
@@ -354,11 +402,13 @@ macro_rules! int_impl {
                 v.set_int(x);
                 v
             }
+            /// Set `x` to `y`.
             pub fn set_int(&mut self, x: i32) {
                 unsafe {
                     $set_int_fn(self, x);
                 }
             }
+            /// - return 1 (true) if true else 0 (false)
             pub fn is_one(&self) -> bool {
                 unsafe { $is_one_fn(self) == 1 }
             }
@@ -369,15 +419,32 @@ macro_rules! int_impl {
 macro_rules! base_field_impl {
     ($t:ty,  $set_little_endian_fn:ident, $set_little_endian_mod_fn:ident, $set_hash_of_fn:ident, $is_odd_fn:ident, $is_negative_fn:ident, $cmp_fn:ident, $square_root_fn:ident) => {
         impl $t {
+            /// Set `bufSize` bytes from `buf` to `x` with masking according to the following method.
+            ///
+            /// 1. set x = buf[0..bufSize-1] as little endian
+            /// 2. x &= (1 << bitLen(r)) - 1
+            /// 3. if (x >= r), then x &= (1 << (bitLen(r) - 1)) - 1
+            ///
+            /// - always returns 0
             pub fn set_little_endian(&mut self, buf: &[u8]) -> bool {
                 unsafe { $set_little_endian_fn(self, buf.as_ptr(), buf.len()) == 0 }
             }
+            /// Set `bufSize` bytes from `buf` modulo `p` or `r` to `x`.
+            ///
+            /// - return 0 if bufSize <= (sizeof(T) * 2), otherwise -1
             pub fn set_little_endian_mod(&mut self, buf: &[u8]) -> bool {
                 unsafe { $set_little_endian_mod_fn(self, buf.as_ptr(), buf.len()) == 0 }
             }
+            /// Set hash of `buf[0..bufSize-1]` to `x`
+            ///
+            /// - always return 0
+            /// - use SHA-256 if sizeof(*x) <= 256 else SHA-512
+            /// - set according to the same way as `setLittleEndian`.
+            /// - This is a function for backward compatibility only. DO'NT use it. Instead of this, use setLittleEndianMod to the hashed value.
             pub fn set_hash_of(&mut self, buf: &[u8]) -> bool {
                 unsafe { $set_hash_of_fn(self, buf.as_ptr(), buf.len()) == 0 }
             }
+            /// Set `x` by a cryptographically secure pseudo-random number generator.
             pub fn set_by_csprng(&mut self) {
                 let mut buf = [0u8; core::mem::size_of::<$t>()];
                 fill_random(&mut buf);
@@ -385,15 +452,19 @@ macro_rules! base_field_impl {
                     panic!("set_by_csprng");
                 }
             }
+            /// - return 1 (true) if true else 0 (false)
             pub fn is_odd(&self) -> bool {
                 unsafe { $is_odd_fn(self) == 1 }
             }
+            /// return 1 if x >= half where half = (r + 1) / 2 (resp. (p + 1) / 2).
             pub fn is_negative(&self) -> bool {
                 unsafe { $is_negative_fn(self) == 1 }
             }
             pub fn cmp(&self, rhs: &$t) -> i32 {
                 unsafe { $cmp_fn(self, rhs) }
             }
+            /// - `y` is one of a square root of `x` if `y` exists.
+            /// - return 0 if success else -1
             pub fn square_root(y: &mut $t, x: &$t) -> bool {
                 unsafe { $square_root_fn(y, x) == 0 }
             }
@@ -506,15 +577,24 @@ macro_rules! ec_impl {
             pub fn dbl(y: &mut $t, x: &$t) {
                 unsafe { $dbl_fn(y, x) }
             }
+            /// - z = x * y for G1 / G2
             pub fn mul(z: &mut $t, x: &$t, y: &Fr) {
                 unsafe { $mul_fn(z, x, y) }
             }
+            /// Convert a point from Jacobi/Projective coordinate to affine.
+            ///
+            /// - convert `[x:y:z]` to `[x:y:1]` if `z != 0` else `[*:*:0]`
             pub fn normalize(y: &mut $t, x: &$t) {
                 unsafe { $normalize_fn(y, x) }
             }
+            /// hash and map to G1 / G2.
+            ///
+            /// - Combine `setHashOf` and `mapTo` functions
             pub fn set_hash_of(&mut self, buf: &[u8]) -> bool {
                 unsafe { $set_hash_and_map_fn(self, buf.as_ptr(), buf.len()) == 0 }
             }
+            /// - z = sum_{i=0}^{n-1} mul(x[i], y[i]) for G1 / G2.
+            /// - `x[]` does not const because they may be normailzed (The value does not change).
             pub fn mul_vec(z: &mut $t, x: &[$t], y: &[Fr]) {
                 unsafe { $mul_vec_fn(z, x.as_ptr(), y.as_ptr(), x.len()) }
             }
@@ -522,6 +602,7 @@ macro_rules! ec_impl {
     };
 }
 
+/// This is a struct for `Fp`. The value is stored in Montgomery representation.
 #[derive(Default, Debug, Clone)]
 #[repr(C)]
 pub struct Fp {
@@ -555,6 +636,9 @@ base_field_impl![
 add_op_impl![Fp, mclBnFp_add, mclBnFp_sub, mclBnFp_neg];
 field_mul_op_impl![Fp, mclBnFp_mul, mclBnFp_div, mclBnFp_inv, mclBnFp_sqr];
 
+/// This is a struct for `Fp2` with a member `mclBnFp d[2]`.
+///
+/// An element `x` of `Fp2` is represented as `x = d[0] + d[1] i` where `i^2 = -1`.
 #[derive(Default, Debug, Clone)]
 #[repr(C)]
 pub struct Fp2 {
@@ -570,11 +654,14 @@ serialize_impl![
 add_op_impl![Fp2, mclBnFp2_add, mclBnFp2_sub, mclBnFp2_neg];
 field_mul_op_impl![Fp2, mclBnFp2_mul, mclBnFp2_div, mclBnFp2_inv, mclBnFp2_sqr];
 impl Fp2 {
+    /// - `y` is one of a square root of `x` if `y` exists.
+    /// - return 0 if success else -1
     pub fn square_root(y: &mut Fp2, x: &Fp2) -> bool {
         unsafe { mclBnFp2_squareRoot(y, x) == 0 }
     }
 }
 
+/// This is a struct for `Fr`. The value is stored in Montgomery representation.
 #[derive(Default, Debug, Clone)]
 #[repr(C)]
 pub struct Fr {
@@ -608,6 +695,9 @@ base_field_impl![
 add_op_impl![Fr, mclBnFr_add, mclBnFr_sub, mclBnFr_neg];
 field_mul_op_impl![Fr, mclBnFr_mul, mclBnFr_div, mclBnFr_inv, mclBnFr_sqr];
 
+/// This is a struct for `G1` with three members `x`, `y`, `z` of type `mclBnFp`.
+///
+/// An element `P` of `G1` is represented as `P = [x:y:z]` in Jacobian coordinates.
 #[derive(Default, Debug, Clone)]
 #[repr(C)]
 pub struct G1 {
@@ -634,6 +724,9 @@ ec_impl![
     mclBnG1_mulVec
 ];
 
+/// This is a struct for `G2` with three members `x`, `y`, `z` of type `mclBnFp2`.
+///
+/// An element `Q` of `G2` is represented as `Q = [x:y:z]` in Jacobian coordinates.
 #[derive(Default, Debug, Clone)]
 #[repr(C)]
 pub struct G2 {
@@ -660,6 +753,12 @@ ec_impl![
     mclBnG2_mulVec
 ];
 
+/// This is a struct for `GT` with a member `mclBnFp d[12]`.
+///
+/// `GT` is an alias for `Fp12`.
+/// However, it represents the set `{ x in Fp12 | x^r = 1}`.
+///
+/// - NOTE: The following functions do NOT return a GT element because GT is a multiplicative group.
 #[derive(Default, Debug, Clone)]
 #[repr(C)]
 pub struct GT {
@@ -677,6 +776,7 @@ int_impl![GT, mclBnGT_setInt32, mclBnGT_isOne];
 add_op_impl![GT, mclBnGT_add, mclBnGT_sub, mclBnGT_neg];
 field_mul_op_impl![GT, mclBnGT_mul, mclBnGT_div, mclBnGT_inv, mclBnGT_sqr];
 impl GT {
+    /// - z = pow(x, y) for GT
     pub fn pow(z: &mut GT, x: &GT, y: &Fr) {
         unsafe { mclBnGT_pow(z, x, y) }
     }
@@ -686,6 +786,15 @@ pub fn get_version() -> u32 {
     unsafe { mclBn_getVersion() }
 }
 
+/// Initialize the mcl library. Call this function first before calling other functions.
+///
+/// - `curve` ; specify the curve type
+/// - This is not thread safe.
+///
+/// ```rust
+/// use mcl_rust::{init, CurveType};
+/// assert!(init(CurveType::BLS12_381));
+/// ```
 pub fn init(curve: CurveType) -> bool {
     unsafe { mclBn_init(curve as i32, MCLBN_COMPILED_TIME_VAR) == 0 }
 }
@@ -736,18 +845,47 @@ pub fn get_curve_order() -> String {
     get_str_impl![mclBn_getCurveOrder]
 }
 
+/// The pairing function `e(P, Q)` is consist of two parts:
+///   - `MillerLoop(P, Q)`
+///   - `finalExp(x)`
+///
+/// `finalExp` satisfies the following properties:
+///   - `e(P, Q) = finalExp(MillerLoop(P, Q))`
+///   - `e(P1, Q1) e(P2, Q2) = finalExp(MillerLoop(P1, Q1) MillerLoop(P2, Q2))`
+///
+/// ```rust
+/// # use mcl_rust::{init, pairing, CurveType, G1, G2, GT};
+/// # assert!(init(CurveType::BLS12_381));
+/// # let (p, q) = (G1::zero(), G2::zero());
+/// let mut z = GT::zero();
+/// pairing(&mut z, &p, &q);
+/// ```
 pub fn pairing(z: &mut GT, x: &G1, y: &G2) {
     unsafe {
         mclBn_pairing(z, x, y);
     }
 }
 
+/// ```rust
+/// # use mcl_rust::{init, miller_loop, CurveType, G1, G2, GT};
+/// # assert!(init(CurveType::BLS12_381));
+/// # let (p, q) = (G1::zero(), G2::zero());
+/// let mut z = GT::zero();
+/// miller_loop(&mut z, &p, &q);
+/// ```
 pub fn miller_loop(z: &mut GT, x: &G1, y: &G2) {
     unsafe {
         mclBn_millerLoop(z, x, y);
     }
 }
 
+/// ```rust
+/// # use mcl_rust::{final_exp, init, CurveType, GT};
+/// # assert!(init(CurveType::BLS12_381));
+/// # let x = GT::zero();
+/// let mut y = GT::zero();
+/// final_exp(&mut y, &x);
+/// ```
 pub fn final_exp(y: &mut GT, x: &GT) {
     unsafe {
         mclBn_finalExp(y, x);
