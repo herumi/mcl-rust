@@ -1,3 +1,31 @@
+//! mcl_rust is a Rust binding of [mcl](https://github.com/herumi/mcl),
+//! a portable and fast pairing-based cryptography library.
+//!
+//! It provides the optimal ate pairing `e: G1 x G2 -> GT` over BN curves and
+//! BLS12 curves, where
+//! - [`Fp`] : a finite field of prime order `p`, over which the elliptic curve `E` is defined.
+//! - [`Fr`] : a finite field of prime order `r`.
+//! - [`G1`] : the cyclic subgroup of `E(Fp)` of order `r`.
+//! - [`G2`] : the cyclic subgroup of `E'(Fp^2)` of order `r`, where `E'` is a
+//!   twist of `E`.
+//! - [`GT`] : the cyclic subgroup of `Fp12` of order `r`.
+//!
+//! `G1` and `G2` are treated as additive groups and `GT` is treated as a multiplicative group.
+//!
+//! Call [`init`] once before using any other function.
+//!
+//! # Example
+//! ```
+//! use mcl_rust::*;
+//! assert!(init(CurveType::BLS12_381));
+//! let mut p = G1::zero();
+//! let mut q = G2::zero();
+//! p.set_hash_of(b"abc");
+//! q.set_hash_of(b"abc");
+//! let mut e = GT::zero();
+//! pairing(&mut e, &p, &q);
+//! assert!(!e.is_zero());
+//! ```
 #![no_std]
 
 extern crate alloc;
@@ -233,13 +261,20 @@ extern "C" {
     fn mclBnGT_pow(z: *mut GT, x: *const GT, y: *const Fr);
 }
 
+/// Curve type passed to [`init`].
 #[derive(PartialEq, Copy, Clone)]
 pub enum CurveType {
+    /// BN curve over a 254-bit prime.
     BN254 = 0,
+    /// BN curve over a 381-bit prime (BN381_1).
     BN381 = 1,
+    /// BN curve over a 254-bit prime whose order has high 2-adicity (BN_SNARK1).
     SNARK = 4,
+    /// BLS12-381 curve.
     BLS12_381 = 5,
+    /// BLS12-377 curve.
     BLS12_377 = 8,
+    /// BN P256 curve defined in the TCG Algorithm Registry.
     #[allow(non_camel_case_types)]
     BN_P256 = 9,
 }
@@ -256,19 +291,22 @@ macro_rules! common_impl {
             }
         }
         impl $t {
+            /// Returns the zero value.
+            /// For `G1`/`G2` this is the point at infinity, which is the identity of the group.
             pub fn zero() -> $t {
                 Default::default()
             }
-            /// This function used to return an uninitialized value, which was
-            /// undefined behavior. It now returns a zero-initialized value,
-            /// so it is equivalent to `zero()`. Use `zero()` instead.
+            /// This function used to return an uninitialized value, which was undefined behavior.
+            /// It now returns a zero-initialized value, so it is equivalent to `zero()`. Use `zero()` instead.
             #[deprecated(since = "1.2.0", note = "use `zero()` instead")]
             pub unsafe fn uninit() -> $t {
                 Default::default()
             }
+            /// Sets `self` to zero.
             pub fn clear(&mut self) {
                 *self = <$t>::zero()
             }
+            /// Returns `true` if `self` is zero.
             pub fn is_zero(&self) -> bool {
                 unsafe { $is_zero_fn(self) == 1 }
             }
@@ -278,6 +316,9 @@ macro_rules! common_impl {
 macro_rules! is_valid_impl {
     ($t:ty, $is_valid_fn:ident) => {
         impl $t {
+            /// Returns `true` if `self` is a valid element.
+            /// For `G1`/`G2`, checks that the point is on the curve (and that it has the correct order
+            /// if order verification is enabled, which is the default for BLS12 curves).
             pub fn is_valid(&self) -> bool {
                 unsafe { $is_valid_fn(self) == 1 }
             }
@@ -288,9 +329,18 @@ macro_rules! is_valid_impl {
 macro_rules! serialize_impl {
     ($t:ty, $size:expr, $serialize_fn:ident, $deserialize_fn:ident) => {
         impl $t {
+            /// Deserializes `buf` into `self` and returns `true` on success.
+            /// For `G1`/`G2`, deserialization fails if the data does not represent a valid point;
+            /// the order of the point is also checked if order verification is enabled, which is the default for BLS12 curves.
             pub fn deserialize(&mut self, buf: &[u8]) -> bool {
                 unsafe { $deserialize_fn(self, buf.as_ptr(), buf.len()) > 0 }
             }
+            /// Returns the serialized bytes of `self`.
+            /// `Fp`/`Fr` are fixed-size little-endian byte sequences,
+            /// `G1`/`G2` are fixed-size compressed points, and `GT` is the concatenation of 12 `Fp` values.
+            ///
+            /// # Panics
+            /// Panics if serialization fails (e.g. the library is not initialized).
             pub fn serialize(&self) -> Vec<u8> {
                 let size = unsafe { $size } as usize;
                 let mut buf: Vec<u8> = Vec::with_capacity(size);
@@ -316,6 +366,8 @@ macro_rules! serialize_impl {
 macro_rules! str_impl {
     ($t:ty, $maxBufSize:expr, $get_str_fn:ident, $set_str_fn:ident) => {
         impl $t {
+            /// Returns the value represented by `s` in the given `base` (2, 10, or 16), or `None` if parsing fails.
+            /// See [`set_str`](Self::set_str) for the details.
             pub fn from_str(s: &str, base: i32) -> Option<$t> {
                 let mut v = <$t>::zero();
                 if v.set_str(s, base) {
@@ -323,9 +375,17 @@ macro_rules! str_impl {
                 }
                 None
             }
+            /// Sets `self` to the value represented by `s` in the given `base` (2, 10, or 16) and returns `true` on success.
+            /// A field value greater than the field order is masked and truncated.
+            /// `G1`/`G2` use the format `"0"` (the point at infinity) or `"1 <x> <y>"` (an affine point);
+            /// setting fails if the point is not on the curve (and, by default for BLS12 curves, if it does not have the correct order).
             pub fn set_str(&mut self, s: &str, base: i32) -> bool {
                 unsafe { $set_str_fn(self, s.as_ptr(), s.len(), base) == 0 }
             }
+            /// Returns the string representation of `self` according to `io_mode`: 2 (binary), 10 (decimal), or 16 (hexadecimal).
+            ///
+            /// # Panics
+            /// Panics if the conversion fails.
             pub fn get_str(&self, io_mode: i32) -> String {
                 let mut buf = MaybeUninit::<[u8; $maxBufSize]>::uninit();
                 let n = unsafe {
@@ -349,16 +409,19 @@ macro_rules! str_impl {
 macro_rules! int_impl {
     ($t:ty, $set_int_fn:ident, $is_one_fn:ident) => {
         impl $t {
+            /// Returns the value of the integer `x`.
             pub fn from_int(x: i32) -> $t {
                 let mut v = <$t>::zero();
                 v.set_int(x);
                 v
             }
+            /// Sets `self` to the integer `x`.
             pub fn set_int(&mut self, x: i32) {
                 unsafe {
                     $set_int_fn(self, x);
                 }
             }
+            /// Returns `true` if `self` is one.
             pub fn is_one(&self) -> bool {
                 unsafe { $is_one_fn(self) == 1 }
             }
@@ -369,15 +432,25 @@ macro_rules! int_impl {
 macro_rules! base_field_impl {
     ($t:ty,  $set_little_endian_fn:ident, $set_little_endian_mod_fn:ident, $set_hash_of_fn:ident, $is_odd_fn:ident, $is_negative_fn:ident, $cmp_fn:ident, $square_root_fn:ident) => {
         impl $t {
+            /// Sets `self` to the little-endian value of `buf` masked as
+            /// follows, where `L` is the bit length of the field order `q`:
+            /// `x &= (1 << L) - 1`, and then `x &= (1 << (L - 1)) - 1` if `x >= q` still holds. Always returns `true`.
             pub fn set_little_endian(&mut self, buf: &[u8]) -> bool {
                 unsafe { $set_little_endian_fn(self, buf.as_ptr(), buf.len()) == 0 }
             }
+            /// Sets `self` to the little-endian value of `buf` reduced modulo the field order.
+            ///  Returns `false` if `buf` is longer than twice the byte size of `Self`.
             pub fn set_little_endian_mod(&mut self, buf: &[u8]) -> bool {
                 unsafe { $set_little_endian_mod_fn(self, buf.as_ptr(), buf.len()) == 0 }
             }
+            /// Sets `self` to a hash of `buf` (SHA-256 if the field is at most 256 bits, SHA-512 otherwise)
+            /// masked in the same way as [`set_little_endian`](Self::set_little_endian).
+            /// This function is for backward compatibility only; prefer hashing the input yourself and calling
+            /// [`set_little_endian_mod`](Self::set_little_endian_mod) with the hashed value.
             pub fn set_hash_of(&mut self, buf: &[u8]) -> bool {
                 unsafe { $set_hash_of_fn(self, buf.as_ptr(), buf.len()) == 0 }
             }
+            /// Sets `self` to a value chosen by a cryptographically secure pseudo-random number generator.
             pub fn set_by_csprng(&mut self) {
                 let mut buf = [0u8; core::mem::size_of::<$t>()];
                 fill_random(&mut buf);
@@ -385,15 +458,20 @@ macro_rules! base_field_impl {
                     panic!("set_by_csprng");
                 }
             }
+            /// Returns `true` if `self` is odd.
             pub fn is_odd(&self) -> bool {
                 unsafe { $is_odd_fn(self) == 1 }
             }
+            /// Returns `true` if `self >= (q + 1) / 2`, where `q` is the field order.
             pub fn is_negative(&self) -> bool {
                 unsafe { $is_negative_fn(self) == 1 }
             }
+            /// Compares `self` and `rhs` as unsigned integers and returns -1 if `self < rhs`, 0 if `self == rhs`, and 1 if `self > rhs`.
+            /// NOTE: this may require two Montgomery conversions.
             pub fn cmp(&self, rhs: &$t) -> i32 {
                 unsafe { $cmp_fn(self, rhs) }
             }
+            /// Sets `y` to one of the square roots of `x` and returns `true` if it exists.
             pub fn square_root(y: &mut $t, x: &$t) -> bool {
                 unsafe { $square_root_fn(y, x) == 0 }
             }
@@ -404,12 +482,15 @@ macro_rules! base_field_impl {
 macro_rules! add_op_impl {
     ($t:ty, $add_fn:ident, $sub_fn:ident, $neg_fn:ident) => {
         impl $t {
+            /// `z = x + y`.
             pub fn add(z: &mut $t, x: &$t, y: &$t) {
                 unsafe { $add_fn(z, x, y) }
             }
+            /// `z = x - y`.
             pub fn sub(z: &mut $t, x: &$t, y: &$t) {
                 unsafe { $sub_fn(z, x, y) }
             }
+            /// `y = -x`.
             pub fn neg(y: &mut $t, x: &$t) {
                 unsafe { $neg_fn(y, x) }
             }
@@ -452,15 +533,19 @@ macro_rules! add_op_impl {
 macro_rules! field_mul_op_impl {
     ($t:ty, $mul_fn:ident, $div_fn:ident, $inv_fn:ident, $sqr_fn:ident) => {
         impl $t {
+            /// `z = x * y`.
             pub fn mul(z: &mut $t, x: &$t, y: &$t) {
                 unsafe { $mul_fn(z, x, y) }
             }
+            /// `z = x / y`.
             pub fn div(z: &mut $t, x: &$t, y: &$t) {
                 unsafe { $div_fn(z, x, y) }
             }
+            /// `y = 1 / x`. See the documentation of [`GT`] for the behavior on `GT`.
             pub fn inv(y: &mut $t, x: &$t) {
                 unsafe { $inv_fn(y, x) }
             }
+            /// `y = x * x`.
             pub fn sqr(y: &mut $t, x: &$t) {
                 unsafe { $sqr_fn(y, x) }
             }
@@ -503,18 +588,26 @@ macro_rules! field_mul_op_impl {
 macro_rules! ec_impl {
     ($t:ty, $dbl_fn:ident, $mul_fn:ident, $normalize_fn:ident, $set_hash_and_map_fn:ident, $mul_vec_fn:ident) => {
         impl $t {
+            /// `y = 2x` (doubling).
             pub fn dbl(y: &mut $t, x: &$t) {
                 unsafe { $dbl_fn(y, x) }
             }
+            /// `z = x * y` (scalar multiplication).
             pub fn mul(z: &mut $t, x: &$t, y: &Fr) {
                 unsafe { $mul_fn(z, x, y) }
             }
+            /// Sets `y` to the point `x` converted from Jacobian
+            /// coordinates `[x:y:z]` to `[x:y:1]` (or `[*:*:0]` if `x` is zero).
+            /// The represented point does not change.
             pub fn normalize(y: &mut $t, x: &$t) {
                 unsafe { $normalize_fn(y, x) }
             }
+            /// Sets `self` to the point obtained by hashing `buf` and mapping the hash value to the group.
             pub fn set_hash_of(&mut self, buf: &[u8]) -> bool {
                 unsafe { $set_hash_and_map_fn(self, buf.as_ptr(), buf.len()) == 0 }
             }
+            /// `z = sum of x[i] * y[i]` (multi-scalar multiplication).
+            /// `x` and `y` must have the same length; `x.len()` elements are read from `y`.
             pub fn mul_vec(z: &mut $t, x: &[$t], y: &[Fr]) {
                 unsafe { $mul_vec_fn(z, x.as_ptr(), y.as_ptr(), x.len()) }
             }
@@ -522,12 +615,15 @@ macro_rules! ec_impl {
     };
 }
 
+/// An element of the finite field `Fp` of prime order `p`, over which the elliptic curve is defined.
+/// The value is stored in Montgomery representation.
 #[derive(Default, Debug, Clone)]
 #[repr(C)]
 pub struct Fp {
     d: [u64; MCLBN_FP_UNIT_SIZE],
 }
 impl Fp {
+    /// Returns the decimal string of the order `p` of `Fp`.
     pub fn get_order() -> String {
         get_field_order()
     }
@@ -555,6 +651,7 @@ base_field_impl![
 add_op_impl![Fp, mclBnFp_add, mclBnFp_sub, mclBnFp_neg];
 field_mul_op_impl![Fp, mclBnFp_mul, mclBnFp_div, mclBnFp_inv, mclBnFp_sqr];
 
+/// An element `x = d[0] + d[1] i` of the field extension `Fp2 = Fp[i]` of degree 2, where `i^2 = -1`.
 #[derive(Default, Debug, Clone)]
 #[repr(C)]
 pub struct Fp2 {
@@ -570,17 +667,21 @@ serialize_impl![
 add_op_impl![Fp2, mclBnFp2_add, mclBnFp2_sub, mclBnFp2_neg];
 field_mul_op_impl![Fp2, mclBnFp2_mul, mclBnFp2_div, mclBnFp2_inv, mclBnFp2_sqr];
 impl Fp2 {
+    /// Sets `y` to one of the square roots of `x` and returns `true` if it exists.
     pub fn square_root(y: &mut Fp2, x: &Fp2) -> bool {
         unsafe { mclBnFp2_squareRoot(y, x) == 0 }
     }
 }
 
+/// An element of the finite field `Fr` of prime order `r`, where `r` is the order of `G1`, `G2`, and `GT`.
+/// The value is stored in Montgomery representation.
 #[derive(Default, Debug, Clone)]
 #[repr(C)]
 pub struct Fr {
     d: [u64; MCLBN_FR_UNIT_SIZE],
 }
 impl Fr {
+    /// Returns the decimal string of the order `r` of `Fr`.
     pub fn get_order() -> String {
         get_curve_order()
     }
@@ -608,6 +709,9 @@ base_field_impl![
 add_op_impl![Fr, mclBnFr_add, mclBnFr_sub, mclBnFr_neg];
 field_mul_op_impl![Fr, mclBnFr_mul, mclBnFr_div, mclBnFr_inv, mclBnFr_sqr];
 
+/// An element of the cyclic group `G1` of order `r` on the elliptic curve `E(Fp)`,
+/// represented as `[x:y:z]` in Jacobian coordinates.
+/// `G1` is an additive group.
 #[derive(Default, Debug, Clone)]
 #[repr(C)]
 pub struct G1 {
@@ -634,6 +738,9 @@ ec_impl![
     mclBnG1_mulVec
 ];
 
+/// An element of the cyclic group `G2` of order `r` on the elliptic curve `E'(Fp2)`,
+/// where `E'` is a twist of `E`, represented as `[x:y:z]` in Jacobian coordinates.
+/// `G2` is an additive group.
 #[derive(Default, Debug, Clone)]
 #[repr(C)]
 pub struct G2 {
@@ -660,6 +767,15 @@ ec_impl![
     mclBnG2_mulVec
 ];
 
+/// An element of `Fp12`, used to represent the cyclic group
+/// `GT = { x in Fp12 | x^r = 1 }` of order `r`.
+///
+/// `GT` is a multiplicative group: the group operations are
+/// [`mul`](GT::mul), [`div`](GT::div), [`sqr`](GT::sqr), and [`pow`](GT::pow).
+/// [`add`](GT::add), [`sub`](GT::sub), and [`neg`](GT::neg) operate in `Fp12`,
+/// so their results are generally not elements of `GT`.
+/// [`inv`](GT::inv) computes the conjugate `a - b w` of `x = a + b w` in `Fp12 = Fp6[w]`,
+/// which equals `1 / x` only when `x` is an element of `GT`.
 #[derive(Default, Debug, Clone)]
 #[repr(C)]
 pub struct GT {
@@ -677,35 +793,46 @@ int_impl![GT, mclBnGT_setInt32, mclBnGT_isOne];
 add_op_impl![GT, mclBnGT_add, mclBnGT_sub, mclBnGT_neg];
 field_mul_op_impl![GT, mclBnGT_mul, mclBnGT_div, mclBnGT_inv, mclBnGT_sqr];
 impl GT {
+    /// `z = x^y`.
     pub fn pow(z: &mut GT, x: &GT, y: &Fr) {
         unsafe { mclBnGT_pow(z, x, y) }
     }
 }
 
+/// Returns the version of the underlying mcl library as `0xABC`, which
+/// means version A.BC.
 pub fn get_version() -> u32 {
     unsafe { mclBn_getVersion() }
 }
 
+/// Initializes the mcl library for `curve` and returns `true` on success.
+/// Call this function before calling any other function.
+/// This function is not thread-safe.
 pub fn init(curve: CurveType) -> bool {
     unsafe { mclBn_init(curve as i32, MCLBN_COMPILED_TIME_VAR) == 0 }
 }
 
+/// Returns the byte size of a serialized `Fr`.
 pub fn get_fr_serialized_size() -> u32 {
     unsafe { mclBn_getFrByteSize() as u32 }
 }
 
+/// Returns the byte size of a serialized `Fp`.
 pub fn get_fp_serialized_size() -> u32 {
     unsafe { mclBn_getFpByteSize() as u32 }
 }
 
+/// Returns the byte size of a serialized (compressed) `G1` point.
 pub fn get_g1_serialized_size() -> u32 {
     get_fp_serialized_size()
 }
 
+/// Returns the byte size of a serialized (compressed) `G2` point.
 pub fn get_g2_serialized_size() -> u32 {
     get_fp_serialized_size() * 2
 }
 
+/// Returns the byte size of a serialized `GT`.
 pub fn get_gt_serialized_size() -> u32 {
     get_fp_serialized_size() * 12
 }
@@ -728,26 +855,36 @@ macro_rules! get_str_impl {
     }};
 }
 
+/// Returns the decimal string of the order `p` of `Fp`, over which the elliptic curve is defined.
 pub fn get_field_order() -> String {
     get_str_impl![mclBn_getFieldOrder]
 }
 
+/// Returns the decimal string of the order `r` of the curve, which is the order of `Fr`.
 pub fn get_curve_order() -> String {
     get_str_impl![mclBn_getCurveOrder]
 }
 
+/// `z = e(x, y)`, where `e: G1 x G2 -> GT` is the optimal ate pairing.
+///
+/// `e(x, y) = final_exp(miller_loop(x, y))`.
 pub fn pairing(z: &mut GT, x: &G1, y: &G2) {
     unsafe {
         mclBn_pairing(z, x, y);
     }
 }
 
+/// `z = MillerLoop(x, y)`, the Miller loop part of the pairing.
+///
+/// `final_exp` satisfies `e(P1, Q1) e(P2, Q2) = final_exp(MillerLoop(P1, Q1) * MillerLoop(P2, Q2))`,
+/// so products of pairings can share one final exponentiation.
 pub fn miller_loop(z: &mut GT, x: &G1, y: &G2) {
     unsafe {
         mclBn_millerLoop(z, x, y);
     }
 }
 
+/// `y = finalExp(x)`, the final exponentiation part of the pairing.
 pub fn final_exp(y: &mut GT, x: &GT) {
     unsafe {
         mclBn_finalExp(y, x);
